@@ -112,7 +112,7 @@ const handleAdd = (e) => {
             </div>
           </div>
 
-          <div className="no-print" style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+          div className="no-print" style={{ display: 'flex', gap: 8, flexWrap: 'wrap', width: '100%' }}
             <button
               className="btn btn-ghost"
               onClick={() => {
