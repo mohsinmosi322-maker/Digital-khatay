@@ -114,7 +114,7 @@ function reducer(state, action) {
             updatedAt: new Date().toISOString(),
           }
         }),
-        toast,
+      
       }
     }
     case 'UPDATE_TRANSACTION': {
