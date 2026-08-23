@@ -75,10 +75,8 @@ export function getCustomerStats(customer) {
   }
 }
 
-export function formatCurrency(value, compact = false) {
+export function formatCurrency(value) {
   const num = Number(value) || 0
-  if (compact && Math.abs(num) >= 100000) return 'Rs ' + (num / 100000).toFixed(1) + 'L'
-  if (compact && Math.abs(num) >= 1000) return 'Rs ' + (num / 1000).toFixed(1) + 'K'
   return 'Rs ' + new Intl.NumberFormat('en-PK', {
     minimumFractionDigits: 0,
     maximumFractionDigits: 0,
