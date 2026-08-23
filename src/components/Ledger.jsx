@@ -63,34 +63,41 @@ export default function Ledger() {
     setShowAdd(true)
   }
 
-  const handleSave = (e) => {
-    e.preventDefault()
-    const num = Number(amount) || 0
+const handleSave = (e) => {
+  e.preventDefault()
+  const num = Number(amount) || 0
 
-    if (num <= 0) {
-      dispatch({
-        type: 'TOAST',
-        payload: { type: 'danger', message: 'Enter a valid amount' },
-      })
-      return
-    }
-
-    const tx = {
-      date,
-      billNo: billNo.trim(),
-      amount: entryType === 'debit' ? num : 0,
-      received: entryType === 'recovery' ? num : 0,
-      receivedDate: entryType === 'recovery' ? date : null,
-    }
-
+  if (num <= 0) {
     dispatch({
-      type: 'ADD_TRANSACTION',
-      payload: { customerId: selectedCustomer.id, tx },
+      type: 'TOAST',
+      payload: { type: 'danger', message: 'Enter a valid amount' },
     })
-
-    setShowAdd(false)
+    return
   }
 
+  const tx = {
+    date,
+    billNo: billNo.trim(),
+    amount: entryType === 'debit' ? num : 0,
+    received: entryType === 'recovery' ? num : 0,
+    receivedDate: entryType === 'recovery' ? date : null,
+  }
+
+  dispatch({
+    type: 'ADD_TRANSACTION',
+    payload: { customerId: selectedCustomer.id, tx },
+  })
+
+  dispatch({
+    type: 'TOAST',
+    payload: {
+      type: entryType === 'recovery' ? 'success' : 'danger',
+      message: entryType === 'recovery' ? 'Recovery Successful' : 'Debit Entry Saved',
+    },
+  })
+
+  setShowAdd(false)
+}
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100%', background: 'var(--card)' }}>
       {/* Header */}
