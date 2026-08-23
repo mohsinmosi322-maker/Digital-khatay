@@ -26,7 +26,7 @@ export default function Dashboard() {
     a.download = `khata-backup-${new Date().toISOString().slice(0, 10)}.json`
     a.click()
     URL.revokeObjectURL(url)
-    dispatch({ type: 'TOAST', payload: { type: 'success', message: 'Backup downloaded' } })
+    dispatch({ type: 'TOAST', payload: { type: 'success', message: 'Backup Downloaded' } })
   }
 
   const handleRestore = async (e) => {
@@ -49,7 +49,7 @@ export default function Dashboard() {
 
   const saveBusiness = () => {
     dispatch({ type: 'SET_BUSINESS', payload: biz })
-    dispatch({ type: 'TOAST', payload: { type: 'success', message: 'Business profile saved' } })
+    dispatch({ type: 'TOAST', payload: { type: 'success', message: 'Business Profile Saved' } })
   }
 
   return (
@@ -61,33 +61,31 @@ export default function Dashboard() {
         </p>
       </div>
 
-      {/* KPI cards */}
-      <div style={{
-        display: 'grid',
-        gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))',
-        gap: 12,
-        marginBottom: 18
-      }}>
+      <div
+        style={{
+          display: 'grid',
+          gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))',
+          gap: 12,
+          marginBottom: 18,
+        }}
+      >
         {[
           ['Customers', globalStats.count, 'var(--primary)'],
-          ['Total Debit', formatCurrency(globalStats.totalAmount, true), 'var(--primary)'],
-          ['Received', formatCurrency(globalStats.totalReceived, true), 'var(--success)'],
-          ['Outstanding', formatCurrency(globalStats.pending, true), 'var(--danger)'],
+          ['Total Debit', formatCurrency(globalStats.totalAmount), 'var(--primary)'],
+          ['Received', formatCurrency(globalStats.totalReceived), 'var(--success)'],
+          ['Outstanding', formatCurrency(globalStats.pending), 'var(--danger)'],
         ].map(([label, val, color]) => (
           <div key={label} className="card" style={{ padding: 14 }}>
             <div style={{ fontSize: 12, color: 'var(--muted)', fontWeight: 600 }}>{label}</div>
-            <div style={{ fontSize: 22, fontWeight: 800, color, marginTop: 4 }}>{val}</div>
+            <div style={{ fontSize: 20, fontWeight: 800, color, marginTop: 4 }}>{val}</div>
           </div>
         ))}
       </div>
 
-      {/* Top outstanding */}
       <div className="card" style={{ padding: 16, marginBottom: 16 }}>
         <h3 style={{ margin: '0 0 12px', fontSize: 15, fontWeight: 800 }}>Top Outstanding</h3>
         {topPending.length === 0 ? (
-          <p style={{ color: 'var(--muted)', textAlign: 'center', margin: '18px 0' }}>
-            All accounts settled
-          </p>
+          <p style={{ color: 'var(--muted)', textAlign: 'center', margin: '18px 0' }}>All accounts settled</p>
         ) : (
           <div style={{ overflowX: 'auto' }}>
             <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13, minWidth: 480 }}>
@@ -101,7 +99,7 @@ export default function Dashboard() {
               </thead>
               <tbody>
                 {topPending.map((c, i) => (
-                  <tr key={c.name} style={{ borderBottom: '1px solid var(--border)' }}>
+                  <tr key={c.name + i} style={{ borderBottom: '1px solid var(--border)' }}>
                     <td style={{ padding: '10px 0', color: 'var(--muted)' }}>{i + 1}</td>
                     <td style={{ padding: 8, fontWeight: 700 }}>{c.name}</td>
                     <td style={{ padding: 8, color: 'var(--muted)' }}>{c.phone || '—'}</td>
@@ -116,29 +114,44 @@ export default function Dashboard() {
         )}
       </div>
 
-      {/* Business + Backup */}
-      <div style={{
-        display: 'grid',
-        gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))',
-        gap: 14
-      }}>
+      <div
+        style={{
+          display: 'grid',
+          gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))',
+          gap: 14,
+        }}
+      >
         <div className="card" style={{ padding: 16 }}>
           <h3 style={{ margin: '0 0 12px', fontSize: 15, fontWeight: 800 }}>Business Profile</h3>
           <div style={{ display: 'grid', gap: 8 }}>
-            <input className="input" placeholder="Shop / Business name"
-              value={biz.name || ''} onChange={(e) => setBiz({ ...biz, name: e.target.value })} />
-            <input className="input" placeholder="Phone"
-              value={biz.phone || ''} onChange={(e) => setBiz({ ...biz, phone: e.target.value })} />
-            <input className="input" placeholder="Address"
-              value={biz.address || ''} onChange={(e) => setBiz({ ...biz, address: e.target.value })} />
-            <button className="btn btn-primary" onClick={saveBusiness}>Save Profile</button>
+            <input
+              className="input"
+              placeholder="Shop / Business name"
+              value={biz.name || ''}
+              onChange={(e) => setBiz({ ...biz, name: e.target.value })}
+            />
+            <input
+              className="input"
+              placeholder="Phone"
+              value={biz.phone || ''}
+              onChange={(e) => setBiz({ ...biz, phone: e.target.value })}
+            />
+            <input
+              className="input"
+              placeholder="Address"
+              value={biz.address || ''}
+              onChange={(e) => setBiz({ ...biz, address: e.target.value })}
+            />
+            <button className="btn btn-primary" onClick={saveBusiness}>
+              Save Profile
+            </button>
           </div>
         </div>
 
         <div className="card" style={{ padding: 16 }}>
           <h3 style={{ margin: '0 0 8px', fontSize: 15, fontWeight: 800 }}>Backup & Data</h3>
           <p style={{ margin: '0 0 12px', fontSize: 12, color: 'var(--muted)', lineHeight: 1.45 }}>
-            Data is stored in this browser only. Download backup regularly so data safe rahe.
+            Data is stored in this browser only. Download backup regularly.
           </p>
           <div style={{ display: 'grid', gap: 8 }}>
             <button className="btn btn-primary" onClick={handleBackup}>
