@@ -137,27 +137,86 @@ export function downloadCustomerPDF(customer, business = {}) {
 
   const safeName = (customer.name || 'customer').replace(/[^\w\-]+/g, '_')
   doc.save(safeName + '_statement.pdf')
+  return doc
 }
 
-export function openWhatsAppStatement(customer, business = {}) {
+/** Build WhatsApp text — pending vs settled */
+export function buildWhatsAppMessage(customer, business = {}) {
   const stats = getCustomerStats(customer)
+  const shop = business.name || 'Digital Khata'
+  const pending = stats.pending
+
+  if (pending <= 0) {
+    return [
+      `*${shop}*`,
+      '',
+      `Assalam-o-Alaikum ${customer.name || 'Customer'},`,
+      '',
+      'Aap ka account *clear* ho chuka hai. ✅',
+      `Total Debit: ${formatCurrency(stats.totalAmount)}`,
+      `Total Received: ${formatCurrency(stats.totalReceived)}`,
+      `Pending: ${formatCurrency(0)}`,
+      '',
+      'Aap ke ehtimam aur barwaqt payment ka *dil se shukriya*.',
+      'Humari services dobara istemal karne ka intezar rahega.',
+      '',
+      'JazakAllah Khair',
+      `*${shop}*`,
+    ].join('\n')
+  }
+
+  return [
+    `*${shop} — Hisab / Statement*`,
+    '',
+    `Assalam-o-Alaikum ${customer.name || 'Customer'},`,
+    '',
+    'Aap ke account ka khulasa yeh hai:',
+    '',
+    `• Total Debit: *${formatCurrency(stats.totalAmount)}*`,
+    `• Received: *${formatCurrency(stats.totalReceived)}*`,
+    `• *Pending Balance: ${formatCurrency(pending)}*`,
+    '',
+    'Barwaqt pending clear karne ki request hai.',
+    'Koi masla ho to rabta karein.',
+    '',
+    'Shukriya',
+    `*${shop}*`,
+  ].join('\n')
+}
+
+export function openWhatsAppText(customer, business = {}) {
   const phone = normalizePhoneForWhatsApp(customer.phone)
   if (!phone) {
     alert('Customer phone number missing or invalid. Please add a valid phone first.')
-    return
+    return false
   }
-  const shop = business.name || 'Digital Khata'
-  const lines = [
-    '*' + shop + ' — Account Statement*',
-    '',
-    'Customer: ' + customer.name,
-    'Total Debit: ' + formatCurrency(stats.totalAmount),
-    'Received: ' + formatCurrency(stats.totalReceived),
-    'Pending: ' + formatCurrency(stats.pending),
-    '',
-    'Please clear the pending amount at the earliest.',
-    'Thank you.',
-  ]
-  const text = encodeURIComponent(lines.join('\n'))
+  const text = encodeURIComponent(buildWhatsAppMessage(customer, business))
   window.open('https://wa.me/' + phone + '?text=' + text, '_blank')
+  return true
+}
+
+/** PDF download + WhatsApp text (attach PDF manually / share on mobile) */
+export async function openWhatsAppWithPDF(customer, business = {}) {
+  const phone = normalizePhoneForWhatsApp(customer.phone)
+  if (!phone) {
+    alert('Customer phone number missing or invalid. Please add a valid phone first.')
+    return false
+  }
+
+  const stats = getCustomerStats(customer)
+  const shop = business.name || 'Digital Khata'
+  const safeName = (customer.name || 'customer').replace(/[^\w\-]+/g, '_')
+
+  // Generate PDF blob
+  const doc = new jsPDF()
+  // reuse download logic by calling download then also open WA
+  downloadCustomerPDF(customer, business)
+
+  const note =
+    stats.pending <= 0
+      ? `*${shop}*\n\nAssalam-o-Alaikum ${customer.name},\n\nAap ka account clear hai. Statement PDF attach hai.\nShukriya!`
+      : `*${shop} — Statement*\n\nAssalam-o-Alaikum ${customer.name},\n\nPending: *${formatCurrency(stats.pending)}*\n\nStatement PDF download ho gayi hai — please usay attach karke bhej dein / mobile pe share karein.`
+
+  window.open('https://wa.me/' + phone + '?text=' + encodeURIComponent(note), '_blank')
+  return true
 }
