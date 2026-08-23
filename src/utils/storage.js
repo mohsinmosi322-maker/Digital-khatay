@@ -1,138 +1,106 @@
-/**
- * LocalStorage helpers for Digital Khata
- * All data is stored client-side. Key: 'digital-khata-data'
- */
+const STORAGE_KEY = 'digital-khata-data-v2'
+const THEME_KEY = 'digital-khata-theme'
+const BUSINESS_KEY = 'digital-khata-business'
 
-const STORAGE_KEY = 'digital-khata-data';
-const THEME_KEY = 'digital-khata-theme';
-
-/**
- * @typedef {Object} Transaction
- * @property {string} id
- * @property {string} date - ISO date string (YYYY-MM-DD)
- * @property {string} billNo
- * @property {number} amount - Debit amount
- * @property {number} received - Payment received
- * @property {string|null} receivedDate - ISO date when payment was received
- * @property {string} [note]
- */
-
-/**
- * @typedef {Object} Customer
- * @property {string} id
- * @property {string} name
- * @property {Transaction[]} transactions
- * @property {string} createdAt
- * @property {string} updatedAt
- */
-
-/**
- * Load all customers from localStorage
- * @returns {Customer[]}
- */
 export function loadCustomers() {
   try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if (!raw) return [];
-    const data = JSON.parse(raw);
-    return Array.isArray(data) ? data : [];
-  } catch (err) {
-    console.error('Failed to load data from localStorage:', err);
-    return [];
+    const v2 = localStorage.getItem(STORAGE_KEY)
+    if (v2) {
+      const data = JSON.parse(v2)
+      return Array.isArray(data) ? data : []
+    }
+    const v1 = localStorage.getItem('digital-khata-data')
+    if (v1) {
+      const data = JSON.parse(v1)
+      if (Array.isArray(data)) {
+        localStorage.setItem(STORAGE_KEY, v1)
+        return data
+      }
+    }
+    return []
+  } catch {
+    return []
   }
 }
 
-/**
- * Save customers array to localStorage
- * @param {Customer[]} customers
- */
 export function saveCustomers(customers) {
   try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(customers));
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(customers))
   } catch (err) {
-    console.error('Failed to save data to localStorage:', err);
-    throw new Error('Storage full or unavailable. Please export your data.');
+    console.error(err)
+    throw new Error('Storage full. Please export a backup.')
   }
 }
 
-/**
- * Clear all app data
- */
 export function clearAllData() {
-  localStorage.removeItem(STORAGE_KEY);
+  localStorage.removeItem(STORAGE_KEY)
 }
 
-/**
- * Theme helpers
- */
 export function loadTheme() {
-  return localStorage.getItem(THEME_KEY) || 'light';
+  return localStorage.getItem(THEME_KEY) || 'light'
 }
 
 export function saveTheme(theme) {
-  localStorage.setItem(THEME_KEY, theme);
+  localStorage.setItem(THEME_KEY, theme)
 }
 
-/**
- * Generate a simple unique ID
- */
+export function loadBusiness() {
+  try {
+    const raw = localStorage.getItem(BUSINESS_KEY)
+    if (!raw) return { name: 'My Business', phone: '', address: '', currency: 'PKR' }
+    return JSON.parse(raw)
+  } catch {
+    return { name: 'My Business', phone: '', address: '', currency: 'PKR' }
+  }
+}
+
+export function saveBusiness(profile) {
+  localStorage.setItem(BUSINESS_KEY, JSON.stringify(profile))
+}
+
 export function generateId() {
-  return `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 9)}`;
+  return Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 9)
 }
 
-/**
- * Calculate aggregates for a customer
- * @param {Customer} customer
- */
 export function getCustomerStats(customer) {
-  const totalAmount = customer.transactions.reduce((sum, t) => sum + (Number(t.amount) || 0), 0);
-  const totalReceived = customer.transactions.reduce((sum, t) => sum + (Number(t.received) || 0), 0);
-  const pending = totalAmount - totalReceived;
+  const totalAmount = (customer.transactions || []).reduce((s, t) => s + (Number(t.amount) || 0), 0)
+  const totalReceived = (customer.transactions || []).reduce((s, t) => s + (Number(t.received) || 0), 0)
+  const pending = totalAmount - totalReceived
   return {
     totalAmount,
     totalReceived,
     pending: Math.max(0, pending),
     overpaid: pending < 0 ? Math.abs(pending) : 0,
-    txCount: customer.transactions.length,
-  };
+    txCount: (customer.transactions || []).length,
+  }
 }
 
-/**
- * Format currency (PKR style – no decimals by default for whole rupees)
- * @param {number} value
- * @param {boolean} [compact=false]
- */
 export function formatCurrency(value, compact = false) {
-  const num = Number(value) || 0;
-  if (compact && Math.abs(num) >= 100000) {
-    return `Rs ${(num / 100000).toFixed(1)}L`;
-  }
-  if (compact && Math.abs(num) >= 1000) {
-    return `Rs ${(num / 1000).toFixed(1)}K`;
-  }
-  return new Intl.NumberFormat('en-PK', {
-    style: 'currency',
-    currency: 'PKR',
+  const num = Number(value) || 0
+  if (compact && Math.abs(num) >= 100000) return 'Rs ' + (num / 100000).toFixed(1) + 'L'
+  if (compact && Math.abs(num) >= 1000) return 'Rs ' + (num / 1000).toFixed(1) + 'K'
+  return 'Rs ' + new Intl.NumberFormat('en-PK', {
     minimumFractionDigits: 0,
     maximumFractionDigits: 0,
-  }).format(num).replace('PKR', 'Rs');
+  }).format(num)
 }
 
-/**
- * Format date for display
- * @param {string} dateStr
- */
 export function formatDate(dateStr) {
-  if (!dateStr) return '—';
+  if (!dateStr) return '—'
   try {
-    const d = new Date(dateStr);
-    if (isNaN(d.getTime())) return dateStr;
-    return d.toLocaleDateString('en-GB', {
-      day: '2-digit',
-      month: 'short',
-      year: 'numeric',
-    });
+    const d = new Date(dateStr)
+    if (isNaN(d.getTime())) return dateStr
+    return d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })
   } catch {
-    return dateStr;
+    return dateStr
   }
+}
+
+export function normalizePhoneForWhatsApp(phone) {
+  if (!phone) return null
+  let digits = String(phone).replace(/\D/g, '')
+  if (digits.startsWith('0')) digits = '92' + digits.slice(1)
+  if (digits.length === 10) digits = '92' + digits
+  if (digits.length < 11) return null
+  return digits
 }
