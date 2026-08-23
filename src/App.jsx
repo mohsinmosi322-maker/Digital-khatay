@@ -1,33 +1,46 @@
-import { useState } from 'react';
-import { AppProvider, useApp } from './context/AppContext';
-import Sidebar, { MobileHeader } from './components/Sidebar';
-import Ledger from './components/Ledger';
-import Dashboard from './components/Dashboard';
+import { useState } from 'react'
+import { AppProvider, useApp } from './context/AppContext'
+import Sidebar, { MobileHeader } from './components/Sidebar'
+import Ledger from './components/Ledger'
+import Dashboard from './components/Dashboard'
+
+function Toast() {
+  const { toast } = useApp()
+  if (!toast) return null
+  return (
+    <div style={{
+      position: 'fixed', bottom: 24, right: 24, zIndex: 9999,
+      padding: '12px 20px', borderRadius: 10, color: '#fff', fontWeight: 500,
+      background: toast.type === 'success' ? '#3B6D11' : '#E24B4A',
+      boxShadow: '0 8px 24px rgba(0,0,0,0.15)'
+    }}>
+      {toast.message}
+    </div>
+  )
+}
 
 function AppShell() {
-  const { view, loaded } = useApp();
-  const [mobileOpen, setMobileOpen] = useState(false);
+  const { view, loaded } = useApp()
+  const [mobileOpen, setMobileOpen] = useState(false)
 
   if (!loaded) {
     return (
-      <div className="flex h-screen items-center justify-center bg-gray-50 dark:bg-gray-950">
-        <div className="text-center">
-          <div className="mx-auto mb-3 h-10 w-10 animate-spin rounded-full border-4 border-primary border-t-transparent" />
-          <p className="text-sm text-gray-500">Loading Digital Khata…</p>
-        </div>
+      <div style={{ height: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <p style={{ color: '#64748b' }}>Loading Digital Khata…</p>
       </div>
-    );
+    )
   }
 
   return (
-    <div className="flex h-screen flex-col overflow-hidden bg-gray-50 dark:bg-gray-950 lg:flex-row">
+    <div style={{ display: 'flex', height: '100vh', overflow: 'hidden' }}>
       <MobileHeader setMobileOpen={setMobileOpen} />
       <Sidebar mobileOpen={mobileOpen} setMobileOpen={setMobileOpen} />
-      <main className="main-content flex min-h-0 flex-1 flex-col overflow-hidden">
+      <main style={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
         {view === 'dashboard' ? <Dashboard /> : <Ledger />}
       </main>
+      <Toast />
     </div>
-  );
+  )
 }
 
 export default function App() {
@@ -35,5 +48,5 @@ export default function App() {
     <AppProvider>
       <AppShell />
     </AppProvider>
-  );
+  )
 }
