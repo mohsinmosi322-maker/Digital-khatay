@@ -2,118 +2,19 @@
 @tailwind components;
 @tailwind utilities;
 
-@layer base {
-  html {
-    @apply scroll-smooth;
-  }
-
-  body {
-    @apply bg-gray-50 text-gray-900 dark:bg-gray-950 dark:text-gray-100;
-  }
-
-  /* Print styles */
-  @media print {
-    body {
-      @apply bg-white text-black;
-    }
-
-    .no-print {
-      display: none !important;
-    }
-
-    .print-only {
-      display: block !important;
-    }
-
-    .print-break {
-      page-break-before: always;
-    }
-
-    aside,
-    .sidebar,
-    .toolbar,
-    button,
-    .dark-mode-toggle {
-      display: none !important;
-    }
-
-    main,
-    .main-content {
-      width: 100% !important;
-      margin: 0 !important;
-      padding: 0 !important;
-    }
-
-    table {
-      @apply text-sm;
-    }
-  }
+body {
+  margin: 0;
+  font-family: Inter, system-ui, -apple-system, sans-serif;
+  background: #f8fafc;
+  color: #0f172a;
 }
 
-@layer components {
-  .btn {
-    @apply inline-flex items-center justify-center gap-2 rounded-lg px-4 py-2 text-sm font-medium transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 disabled:opacity-50 disabled:pointer-events-none;
-  }
-
-  .btn-primary {
-    @apply btn bg-primary text-white hover:bg-primary-600 focus:ring-primary;
-  }
-
-  .btn-secondary {
-    @apply btn bg-gray-100 text-gray-700 hover:bg-gray-200 dark:bg-gray-800 dark:text-gray-200 dark:hover:bg-gray-700 focus:ring-gray-400;
-  }
-
-  .btn-success {
-    @apply btn bg-success text-white hover:bg-success-600 focus:ring-success;
-  }
-
-  .btn-danger {
-    @apply btn bg-danger text-white hover:bg-danger-600 focus:ring-danger;
-  }
-
-  .btn-ghost {
-    @apply btn bg-transparent text-gray-600 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-800;
-  }
-
-  .input {
-    @apply w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 placeholder-gray-400 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-100 dark:placeholder-gray-500;
-  }
-
-  .card {
-    @apply rounded-xl border border-gray-200 bg-white shadow-sm dark:border-gray-800 dark:bg-gray-900;
-  }
-
-  .badge {
-    @apply inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium;
-  }
-
-  .badge-success {
-    @apply badge bg-success-50 text-success-600 dark:bg-success/20 dark:text-green-400;
-  }
-
-  .badge-danger {
-    @apply badge bg-danger-50 text-danger dark:bg-danger/20 dark:text-red-400;
-  }
-
-  .badge-primary {
-    @apply badge bg-primary-50 text-primary dark:bg-primary/20 dark:text-blue-400;
-  }
+.dark body {
+  background: #020617;
+  color: #f1f5f9;
 }
 
-/* Custom scrollbar */
-::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
-}
-
-::-webkit-scrollbar-track {
-  @apply bg-transparent;
-}
-
-::-webkit-scrollbar-thumb {
-  @apply rounded-full bg-gray-300 dark:bg-gray-700;
-}
-
-::-webkit-scrollbar-thumb:hover {
-  @apply bg-gray-400 dark:bg-gray-600;
+@media print {
+  .no-print { display: none !important; }
+  body { background: white; color: black; }
 }
