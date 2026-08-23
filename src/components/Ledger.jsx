@@ -60,24 +60,35 @@ export default function Ledger() {
     (a.date || '').localeCompare(b.date || '')
   )
 
-  const handleAdd = (e) => {
-    e.preventDefault()
+const handleAdd = (e) => {
+  e.preventDefault()
+  const amount = Number(addForm.amount) || 0
+  const received = Number(addForm.received) || 0
+
+  if (amount <= 0 && received <= 0) {
     dispatch({
-      type: 'ADD_TRANSACTION',
-      payload: {
-        customerId: selectedCustomer.id,
-        tx: {
-          date: addForm.date,
-          billNo: addForm.billNo.trim(),
-          amount: Number(addForm.amount) || 0,
-          received: Number(addForm.received) || 0,
-          receivedDate: addForm.receivedDate || null,
-        },
-      },
+      type: 'TOAST',
+      payload: { type: 'danger', message: 'Amount or Received required' },
     })
-    setAddForm(emptyTx)
-    setShowAdd(false)
+    return
   }
+
+  dispatch({
+    type: 'ADD_TRANSACTION',
+    payload: {
+      customerId: selectedCustomer.id,
+      tx: {
+        date: addForm.date,
+        billNo: addForm.billNo.trim(),
+        amount,
+        received,
+        receivedDate: addForm.receivedDate || null,
+      },
+    },
+  })
+  setAddForm(emptyTx)
+  setShowAdd(false)
+}
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100%', background: 'var(--card)' }}>
