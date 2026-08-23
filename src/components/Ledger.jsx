@@ -1,8 +1,11 @@
 import { useState } from 'react'
 import { useApp } from '../context/AppContext'
 import { formatCurrency, formatDate, getCustomerStats } from '../utils/storage'
-import { downloadCustomerPDF, openWhatsAppStatement } from '../utils/pdf'
-import { downloadCustomerPDF, openWhatsAppText, openWhatsAppWithPDF } from '../utils/pdf'
+import {
+  downloadCustomerPDF,
+  openWhatsAppText,
+  openWhatsAppWithPDF,
+} from '../utils/pdf'
 
 export default function Ledger() {
   const { selectedCustomer, business, dispatch } = useApp()
@@ -65,44 +68,44 @@ export default function Ledger() {
     setShowAdd(true)
   }
 
-const handleSave = (e) => {
-  e.preventDefault()
-  const num = Number(amount) || 0
+  const handleSave = (e) => {
+    e.preventDefault()
+    const num = Number(amount) || 0
 
-  if (num <= 0) {
+    if (num <= 0) {
+      dispatch({
+        type: 'TOAST',
+        payload: { type: 'danger', message: 'Enter a valid amount' },
+      })
+      return
+    }
+
+    const tx = {
+      date,
+      billNo: billNo.trim(),
+      amount: entryType === 'debit' ? num : 0,
+      received: entryType === 'recovery' ? num : 0,
+      receivedDate: entryType === 'recovery' ? date : null,
+    }
+
+    dispatch({
+      type: 'ADD_TRANSACTION',
+      payload: { customerId: selectedCustomer.id, tx },
+    })
+
     dispatch({
       type: 'TOAST',
-      payload: { type: 'danger', message: 'Enter a valid amount' },
+      payload: {
+        type: entryType === 'recovery' ? 'success' : 'danger',
+        message: entryType === 'recovery' ? 'Recovery Successful' : 'Debit Entry Saved',
+      },
     })
-    return
+
+    setShowAdd(false)
   }
 
-  const tx = {
-    date,
-    billNo: billNo.trim(),
-    amount: entryType === 'debit' ? num : 0,
-    received: entryType === 'recovery' ? num : 0,
-    receivedDate: entryType === 'recovery' ? date : null,
-  }
-
-  dispatch({
-    type: 'ADD_TRANSACTION',
-    payload: { customerId: selectedCustomer.id, tx },
-  })
-
-  dispatch({
-    type: 'TOAST',
-    payload: {
-      type: entryType === 'recovery' ? 'success' : 'danger',
-      message: entryType === 'recovery' ? 'Recovery Successful' : 'Debit Entry Saved',
-    },
-  })
-
-  setShowAdd(false)
-}
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100%', background: 'var(--card)' }}>
-      {/* Header */}
       <div style={{ padding: '16px 16px 14px', borderBottom: '1px solid var(--border)' }}>
         <div
           style={{
@@ -138,17 +141,17 @@ const handleSave = (e) => {
             >
               Edit Customer
             </button>
-            <button className="btn btn-primary" onClick={() => downloadCustomerPDF(selectedCustomer, business)}>
+            <button
+              className="btn btn-primary"
+              onClick={() => downloadCustomerPDF(selectedCustomer, business)}
+            >
               PDF
             </button>
-            <button className="btn btn-success" onClick={() => openWhatsAppStatement(selectedCustomer, business)}>
+            <button className="btn btn-success" onClick={() => setWaOpen(true)}>
               WhatsApp
             </button>
             <button className="btn btn-ghost" onClick={() => window.print()}>
               Print
-            </button>
-            <button className="btn btn-success" onClick={() => setWaOpen(true)}>
-            WhatsApp
             </button>
             <button
               className="btn btn-danger-outline"
@@ -197,7 +200,6 @@ const handleSave = (e) => {
         </div>
       </div>
 
-      {/* Toolbar */}
       <div
         className="no-print"
         style={{
@@ -215,7 +217,6 @@ const handleSave = (e) => {
         </button>
       </div>
 
-      {/* Table */}
       <div style={{ flex: 1, overflow: 'auto' }}>
         {txs.length === 0 ? (
           <div style={{ padding: 48, textAlign: 'center', color: 'var(--muted)', fontSize: 14 }}>
@@ -336,7 +337,7 @@ const handleSave = (e) => {
         )}
       </div>
 
-      {/* ========== ADD ENTRY POPUP ========== */}
+      {/* ADD ENTRY POPUP */}
       {showAdd && (
         <div
           className="no-print"
@@ -459,7 +460,62 @@ const handleSave = (e) => {
         </div>
       )}
 
-      {/* ========== EDIT CUSTOMER POPUP ========== */}
+      {/* WHATSAPP POPUP */}
+      {waOpen && (
+        <div
+          className="no-print"
+          style={{
+            position: 'fixed',
+            inset: 0,
+            background: 'rgba(15,23,42,0.5)',
+            display: 'grid',
+            placeItems: 'center',
+            zIndex: 200,
+            padding: 16,
+          }}
+        >
+          <div className="card" style={{ width: 'min(380px, 100%)', padding: 22 }}>
+            <h3 style={{ margin: '0 0 8px', fontWeight: 800 }}>Send on WhatsApp</h3>
+            <p style={{ margin: '0 0 16px', fontSize: 13, color: 'var(--muted)' }}>
+              Message ya PDF statement choose karein
+            </p>
+
+            <div style={{ display: 'grid', gap: 10 }}>
+              <button
+                className="btn btn-success"
+                style={{ padding: 14, fontSize: 15 }}
+                onClick={() => {
+                  openWhatsAppText(selectedCustomer, business)
+                  setWaOpen(false)
+                }}
+              >
+                Message
+              </button>
+
+              <button
+                className="btn btn-primary"
+                style={{ padding: 14, fontSize: 15 }}
+                onClick={() => {
+                  openWhatsAppWithPDF(selectedCustomer, business)
+                  setWaOpen(false)
+                }}
+              >
+                PDF Statement
+              </button>
+
+              <button className="btn btn-ghost" onClick={() => setWaOpen(false)}>
+                Cancel
+              </button>
+            </div>
+
+            <p style={{ margin: '14px 0 0', fontSize: 11, color: 'var(--muted)', lineHeight: 1.45 }}>
+              PDF: file download + WhatsApp open. Mobile pe PDF attach karke send karein.
+            </p>
+          </div>
+        </div>
+      )}
+
+      {/* EDIT CUSTOMER */}
       {editOpen && (
         <div
           className="no-print"
@@ -529,57 +585,3 @@ const handleSave = (e) => {
     </div>
   )
 }
-{waOpen && (
-  <div
-    className="no-print"
-    style={{
-      position: 'fixed',
-      inset: 0,
-      background: 'rgba(15,23,42,0.5)',
-      display: 'grid',
-      placeItems: 'center',
-      zIndex: 200,
-      padding: 16,
-    }}
-  >
-    <div className="card" style={{ width: 'min(380px, 100%)', padding: 22 }}>
-      <h3 style={{ margin: '0 0 8px', fontWeight: 800 }}>Send on WhatsApp</h3>
-      <p style={{ margin: '0 0 16px', fontSize: 13, color: 'var(--muted)' }}>
-        Message ya PDF statement choose karein
-      </p>
-
-      <div style={{ display: 'grid', gap: 10 }}>
-        <button
-          className="btn btn-success"
-          style={{ padding: 14, fontSize: 15 }}
-          onClick={() => {
-            openWhatsAppText(selectedCustomer, business)
-            setWaOpen(false)
-          }}
-        >
-          💬 Message
-        </button>
-
-        <button
-          className="btn btn-primary"
-          style={{ padding: 14, fontSize: 15 }}
-          onClick={() => {
-            openWhatsAppWithPDF(selectedCustomer, business)
-            setWaOpen(false)
-          }}
-        >
-          📄 PDF Statement
-        </button>
-
-        <button className="btn btn-ghost" onClick={() => setWaOpen(false)}>
-          Cancel
-        </button>
-      </div>
-
-      <p style={{ margin: '14px 0 0', fontSize: 11, color: 'var(--muted)', lineHeight: 1.4 }}>
-        PDF option: file download hoti hai + WhatsApp khulta hai. Mobile pe PDF attach karke send karein.
-        (WhatsApp link sirf text bhej sakta hai, file auto-attach nahi hoti.)
-      </p>
-    </div>
-  </div>
-)}
