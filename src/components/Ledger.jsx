@@ -60,35 +60,43 @@ export default function Ledger() {
     (a.date || '').localeCompare(b.date || '')
   )
 
-const handleAdd = (e) => {
-  e.preventDefault()
-  const amount = Number(addForm.amount) || 0
-  const received = Number(addForm.received) || 0
+  const handleAdd = (e) => {
+    e.preventDefault()
+    const amount = Number(addForm.amount) || 0
+    const received = Number(addForm.received) || 0
 
-  if (amount <= 0 && received <= 0) {
+    if (amount < 0 || received < 0) {
+      dispatch({
+        type: 'TOAST',
+        payload: { type: 'danger', message: 'Negative amount not allowed' },
+      })
+      return
+    }
+
+    if (amount <= 0 && received <= 0) {
+      dispatch({
+        type: 'TOAST',
+        payload: { type: 'danger', message: 'Amount or Received required' },
+      })
+      return
+    }
+
     dispatch({
-      type: 'TOAST',
-      payload: { type: 'danger', message: 'Amount or Received required' },
-    })
-    return
-  }
-
-  dispatch({
-    type: 'ADD_TRANSACTION',
-    payload: {
-      customerId: selectedCustomer.id,
-      tx: {
-        date: addForm.date,
-        billNo: addForm.billNo.trim(),
-        amount,
-        received,
-        receivedDate: addForm.receivedDate || null,
+      type: 'ADD_TRANSACTION',
+      payload: {
+        customerId: selectedCustomer.id,
+        tx: {
+          date: addForm.date,
+          billNo: addForm.billNo.trim(),
+          amount,
+          received,
+          receivedDate: addForm.receivedDate || null,
+        },
       },
-    },
-  })
-  setAddForm(emptyTx)
-  setShowAdd(false)
-}
+    })
+    setAddForm(emptyTx)
+    setShowAdd(false)
+  }
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100%', background: 'var(--card)' }}>
@@ -112,7 +120,7 @@ const handleAdd = (e) => {
             </div>
           </div>
 
-          div className="no-print" style={{ display: 'flex', gap: 8, flexWrap: 'wrap', width: '100%' }}
+          <div className="no-print" style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
             <button
               className="btn btn-ghost"
               onClick={() => {
@@ -225,6 +233,7 @@ const handleAdd = (e) => {
                 <input
                   className="input"
                   type={type}
+                  min={type === 'number' ? '0' : undefined}
                   value={addForm[key]}
                   required={key === 'date'}
                   onChange={(e) => setAddForm({ ...addForm, [key]: e.target.value })}
