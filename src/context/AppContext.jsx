@@ -95,19 +95,29 @@ function reducer(state, action) {
       }
     }
     case 'ADD_TRANSACTION': {
+  const amount = Number(action.payload.tx.amount) || 0
+  const received = Number(action.payload.tx.received) || 0
+  let toast = { type: 'success', message: 'Transaction Successful' }
+  if (received > 0 && amount === 0) {
+    toast = { type: 'success', message: 'Recovery Successful' }
+  } else if (amount > 0 && received === 0) {
+    toast = { type: 'danger', message: 'Debit Entry Saved' }
+  } else if (amount > 0 && received > 0) {
+    toast = { type: 'success', message: 'Transaction Successful' }
+  }
+  return {
+    ...state,
+    customers: state.customers.map((c) => {
+      if (c.id !== action.payload.customerId) return c
       return {
-        ...state,
-        customers: state.customers.map((c) => {
-          if (c.id !== action.payload.customerId) return c
-          return {
-            ...c,
-            transactions: [...c.transactions, { id: generateId(), ...action.payload.tx }],
-            updatedAt: new Date().toISOString(),
-          }
-        }),
-        toast: { type: 'success', message: 'Entry saved' },
+        ...c,
+        transactions: [...c.transactions, { id: generateId(), ...action.payload.tx }],
+        updatedAt: new Date().toISOString(),
       }
-    }
+    }),
+    toast,
+  }
+}
     case 'UPDATE_TRANSACTION': {
       return {
         ...state,
