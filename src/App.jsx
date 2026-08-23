@@ -7,14 +7,13 @@ import Dashboard from './components/Dashboard'
 function Toast() {
   const { toast } = useApp()
   if (!toast) return null
+  const cls =
+    toast.type === 'success' ? 'toast toast-success' :
+    toast.type === 'danger' ? 'toast toast-danger' :
+    'toast toast-info'
   return (
-    <div style={{
-      position: 'fixed', bottom: 20, left: '50%', transform: 'translateX(-50%)',
-      zIndex: 100, padding: '12px 18px', borderRadius: 12, color: '#fff',
-      fontWeight: 600, fontSize: 13, boxShadow: '0 10px 30px rgba(0,0,0,0.18)',
-      background: toast.type === 'success' ? '#2f6b12' : '#d93b3a'
-    }}>
-      {toast.message}
+    <div className="toast-wrap no-print">
+      <div className={cls}>{toast.message}</div>
     </div>
   )
 }
@@ -31,8 +30,8 @@ function AppShell() {
             width: 42, height: 42, borderRadius: 12, margin: '0 auto 12px',
             background: 'linear-gradient(135deg, #185FA5, #3B82F6)'
           }} />
-          <div style={{ fontWeight: 700, color: 'var(--text)' }}>Digital Khata</div>
-          <div style={{ fontSize: 13, color: 'var(--muted)', marginTop: 4 }}>Loading workspace…</div>
+          <div style={{ fontWeight: 700 }}>Digital Khata</div>
+          <div style={{ fontSize: 13, color: 'var(--muted)', marginTop: 4 }}>Loading…</div>
         </div>
       </div>
     )
