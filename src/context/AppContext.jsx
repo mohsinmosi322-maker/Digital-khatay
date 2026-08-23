@@ -61,6 +61,7 @@ function reducer(state, action) {
         id: generateId(),
         name: action.payload.name.trim(),
         phone: (action.payload.phone || '').trim(),
+        cnic: (action.payload.cnic || '').trim(),
         address: (action.payload.address || '').trim(),
         notes: '',
         transactions: [],
@@ -71,7 +72,7 @@ function reducer(state, action) {
         ...state,
         customers: [...state.customers, customer],
         selectedId: customer.id,
-        toast: { type: 'success', message: 'Customer added' },
+        toast: { type: 'success', message: 'Customer Added Successfully' },
       }
     }
     case 'UPDATE_CUSTOMER': {
@@ -82,7 +83,7 @@ function reducer(state, action) {
             ? { ...c, ...action.payload.updates, updatedAt: new Date().toISOString() }
             : c
         ),
-        toast: { type: 'success', message: 'Customer updated' },
+        toast: { type: 'success', message: 'Customer Updated Successfully' },
       }
     }
     case 'DELETE_CUSTOMER': {
@@ -91,33 +92,31 @@ function reducer(state, action) {
         ...state,
         customers: next,
         selectedId: state.selectedId === action.payload ? next[0]?.id ?? null : state.selectedId,
-        toast: { type: 'success', message: 'Customer deleted' },
+        toast: { type: 'danger', message: 'Customer Deleted' },
       }
     }
     case 'ADD_TRANSACTION': {
-  const amount = Number(action.payload.tx.amount) || 0
-  const received = Number(action.payload.tx.received) || 0
-  let toast = { type: 'success', message: 'Transaction Successful' }
-  if (received > 0 && amount === 0) {
-    toast = { type: 'success', message: 'Recovery Successful' }
-  } else if (amount > 0 && received === 0) {
-    toast = { type: 'danger', message: 'Debit Entry Saved' }
-  } else if (amount > 0 && received > 0) {
-    toast = { type: 'success', message: 'Transaction Successful' }
-  }
-  return {
-    ...state,
-    customers: state.customers.map((c) => {
-      if (c.id !== action.payload.customerId) return c
-      return {
-        ...c,
-        transactions: [...c.transactions, { id: generateId(), ...action.payload.tx }],
-        updatedAt: new Date().toISOString(),
+      const amount = Number(action.payload.tx.amount) || 0
+      const received = Number(action.payload.tx.received) || 0
+      let toast = { type: 'success', message: 'Transaction Successful' }
+      if (received > 0 && amount === 0) {
+        toast = { type: 'success', message: 'Recovery Successful' }
+      } else if (amount > 0 && received === 0) {
+        toast = { type: 'danger', message: 'Debit Entry Saved' }
       }
-    }),
-    toast,
-  }
-}
+      return {
+        ...state,
+        customers: state.customers.map((c) => {
+          if (c.id !== action.payload.customerId) return c
+          return {
+            ...c,
+            transactions: [...c.transactions, { id: generateId(), ...action.payload.tx }],
+            updatedAt: new Date().toISOString(),
+          }
+        }),
+        toast,
+      }
+    }
     case 'UPDATE_TRANSACTION': {
       return {
         ...state,
@@ -131,6 +130,7 @@ function reducer(state, action) {
             updatedAt: new Date().toISOString(),
           }
         }),
+        toast: { type: 'success', message: 'Entry Updated' },
       }
     }
     case 'DELETE_TRANSACTION': {
@@ -144,7 +144,7 @@ function reducer(state, action) {
             updatedAt: new Date().toISOString(),
           }
         }),
-        toast: { type: 'success', message: 'Entry deleted' },
+        toast: { type: 'danger', message: 'Entry Deleted' },
       }
     }
     case 'IMPORT_CUSTOMERS': {
@@ -156,6 +156,7 @@ function reducer(state, action) {
           existing.set(key, {
             ...cur,
             phone: cur.phone || inc.phone || '',
+            cnic: cur.cnic || inc.cnic || '',
             address: cur.address || inc.address || '',
             transactions: [...cur.transactions, ...inc.transactions],
             updatedAt: new Date().toISOString(),
@@ -167,7 +168,7 @@ function reducer(state, action) {
       return {
         ...state,
         customers: Array.from(existing.values()),
-        toast: { type: 'success', message: 'Import complete' },
+        toast: { type: 'success', message: 'Import Complete' },
       }
     }
     case 'RESTORE_ALL':
@@ -175,14 +176,14 @@ function reducer(state, action) {
         ...state,
         customers: action.payload.customers || [],
         business: action.payload.business || state.business,
-        toast: { type: 'success', message: 'Backup restored' },
+        toast: { type: 'success', message: 'Backup Restored Successfully' },
       }
     case 'CLEAR_ALL':
       return {
         ...state,
         customers: [],
         selectedId: null,
-        toast: { type: 'success', message: 'All data cleared' },
+        toast: { type: 'danger', message: 'All Data Cleared' },
       }
     default:
       return state
@@ -220,7 +221,7 @@ export function AppProvider({ children }) {
 
   useEffect(() => {
     if (!state.toast) return
-    const t = setTimeout(() => dispatch({ type: 'TOAST', payload: null }), 2500)
+    const t = setTimeout(() => dispatch({ type: 'TOAST', payload: null }), 2200)
     return () => clearTimeout(t)
   }, [state.toast])
 
@@ -236,6 +237,7 @@ export function AppProvider({ children }) {
         (c) =>
           c.name.toLowerCase().includes(q) ||
           (c.phone || '').includes(q) ||
+          (c.cnic || '').includes(q) ||
           (c.address || '').toLowerCase().includes(q)
       )
     }
