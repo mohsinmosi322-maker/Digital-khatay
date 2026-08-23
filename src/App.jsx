@@ -8,8 +8,17 @@ function AnimatedFeedback() {
   const { toast } = useApp()
   if (!toast) return null
 
-  const isSuccess = toast.type === 'success'
-  const bg = isSuccess ? '#2f6b12' : '#d93b3a'
+  // danger = red, but still show tick unless message is delete/error
+  const isRed = toast.type === 'danger'
+  const bg = isRed ? '#d93b3a' : toast.type === 'success' ? '#2f6b12' : '#185FA5'
+
+  const msg = (toast.message || '').toLowerCase()
+  const showCross =
+    msg.includes('deleted') ||
+    msg.includes('required') ||
+    msg.includes('not allowed') ||
+    msg.includes('invalid') ||
+    msg.includes('enter a valid')
 
   return (
     <div
@@ -47,7 +56,11 @@ function AnimatedFeedback() {
             animation: 'scaleIn 0.4s ease',
           }}
         >
-          {isSuccess ? (
+          {showCross ? (
+            <svg width="36" height="36" viewBox="0 0 24 24" fill="none">
+              <path d="M6 6l12 12M18 6L6 18" stroke="#fff" strokeWidth="2.8" strokeLinecap="round" />
+            </svg>
+          ) : (
             <svg width="36" height="36" viewBox="0 0 24 24" fill="none">
               <path
                 d="M5 13l4 4L19 7"
@@ -55,15 +68,6 @@ function AnimatedFeedback() {
                 strokeWidth="2.8"
                 strokeLinecap="round"
                 strokeLinejoin="round"
-              />
-            </svg>
-          ) : (
-            <svg width="36" height="36" viewBox="0 0 24 24" fill="none">
-              <path
-                d="M6 6l12 12M18 6L6 18"
-                stroke="#fff"
-                strokeWidth="2.8"
-                strokeLinecap="round"
               />
             </svg>
           )}
@@ -84,7 +88,6 @@ function AnimatedFeedback() {
     </div>
   )
 }
-
 function AppShell() {
   const { view, loaded, business } = useApp()
   const [mobileOpen, setMobileOpen] = useState(false)
