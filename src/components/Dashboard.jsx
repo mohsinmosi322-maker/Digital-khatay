@@ -14,7 +14,11 @@ export default function Dashboard() {
     .slice(0, 10)
 
   const handleBackup = () => {
-    const data = JSON.stringify({ customers, business, exportedAt: new Date().toISOString() }, null, 2)
+    const data = JSON.stringify(
+      { customers, business, exportedAt: new Date().toISOString() },
+      null,
+      2
+    )
     const blob = new Blob([data], { type: 'application/json' })
     const url = URL.createObjectURL(blob)
     const a = document.createElement('a')
@@ -49,90 +53,110 @@ export default function Dashboard() {
   }
 
   return (
-    <div style={{ padding: 24, height: '100%', overflowY: 'auto', background: '#f8fafc' }}>
-      <h2 style={{ margin: '0 0 4px', fontSize: 22, fontWeight: 700 }}>Dashboard</h2>
-      <p style={{ margin: '0 0 20px', color: '#64748b', fontSize: 14 }}>Business overview & data tools</p>
+    <div style={{ padding: 16, height: '100%', overflowY: 'auto', background: 'var(--bg)' }}>
+      <div style={{ marginBottom: 18 }}>
+        <h2 style={{ margin: '0 0 4px', fontSize: 22, fontWeight: 800 }}>Dashboard</h2>
+        <p style={{ margin: 0, color: 'var(--muted)', fontSize: 13 }}>
+          Business overview, outstanding accounts & data tools
+        </p>
+      </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 14, marginBottom: 24 }}>
+      {/* KPI cards */}
+      <div style={{
+        display: 'grid',
+        gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))',
+        gap: 12,
+        marginBottom: 18
+      }}>
         {[
-          ['Customers', globalStats.count, '#185FA5'],
-          ['Total Debit', formatCurrency(globalStats.totalAmount, true), '#185FA5'],
-          ['Received', formatCurrency(globalStats.totalReceived, true), '#3B6D11'],
-          ['Outstanding', formatCurrency(globalStats.pending, true), '#E24B4A'],
+          ['Customers', globalStats.count, 'var(--primary)'],
+          ['Total Debit', formatCurrency(globalStats.totalAmount, true), 'var(--primary)'],
+          ['Received', formatCurrency(globalStats.totalReceived, true), 'var(--success)'],
+          ['Outstanding', formatCurrency(globalStats.pending, true), 'var(--danger)'],
         ].map(([label, val, color]) => (
-          <div key={label} style={{ background: '#fff', padding: 16, borderRadius: 12, border: '1px solid #e2e8f0' }}>
-            <div style={{ fontSize: 12, color: '#64748b' }}>{label}</div>
-            <div style={{ fontSize: 22, fontWeight: 700, color, marginTop: 4 }}>{val}</div>
+          <div key={label} className="card" style={{ padding: 14 }}>
+            <div style={{ fontSize: 12, color: 'var(--muted)', fontWeight: 600 }}>{label}</div>
+            <div style={{ fontSize: 22, fontWeight: 800, color, marginTop: 4 }}>{val}</div>
           </div>
         ))}
       </div>
 
-      <div style={{ background: '#fff', padding: 20, borderRadius: 12, border: '1px solid #e2e8f0', marginBottom: 20 }}>
-        <h3 style={{ margin: '0 0 14px', fontSize: 15 }}>Top Outstanding</h3>
+      {/* Top outstanding */}
+      <div className="card" style={{ padding: 16, marginBottom: 16 }}>
+        <h3 style={{ margin: '0 0 12px', fontSize: 15, fontWeight: 800 }}>Top Outstanding</h3>
         {topPending.length === 0 ? (
-          <p style={{ color: '#94a3b8', textAlign: 'center' }}>All settled</p>
+          <p style={{ color: 'var(--muted)', textAlign: 'center', margin: '18px 0' }}>
+            All accounts settled
+          </p>
         ) : (
-          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
-            <thead>
-              <tr style={{ borderBottom: '1px solid #e2e8f0', color: '#64748b', fontSize: 11 }}>
-                <th style={{ textAlign: 'left', padding: '8px 0' }}>#</th>
-                <th style={{ textAlign: 'left', padding: 8 }}>Customer</th>
-                <th style={{ textAlign: 'left', padding: 8 }}>Phone</th>
-                <th style={{ textAlign: 'right', padding: 8 }}>Pending</th>
-              </tr>
-            </thead>
-            <tbody>
-              {topPending.map((c, i) => (
-                <tr key={c.name} style={{ borderBottom: '1px solid #f1f5f9' }}>
-                  <td style={{ padding: '10px 0', color: '#94a3b8' }}>{i + 1}</td>
-                  <td style={{ padding: 8, fontWeight: 600 }}>{c.name}</td>
-                  <td style={{ padding: 8, color: '#64748b' }}>{c.phone || '—'}</td>
-                  <td style={{ padding: 8, textAlign: 'right', fontWeight: 700, color: '#E24B4A' }}>{formatCurrency(c.pending)}</td>
+          <div style={{ overflowX: 'auto' }}>
+            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13, minWidth: 480 }}>
+              <thead>
+                <tr style={{ borderBottom: '1px solid var(--border)', color: 'var(--muted)', fontSize: 11 }}>
+                  <th style={{ textAlign: 'left', padding: '8px 0' }}>#</th>
+                  <th style={{ textAlign: 'left', padding: 8 }}>Customer</th>
+                  <th style={{ textAlign: 'left', padding: 8 }}>Phone</th>
+                  <th style={{ textAlign: 'right', padding: 8 }}>Pending</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {topPending.map((c, i) => (
+                  <tr key={c.name} style={{ borderBottom: '1px solid var(--border)' }}>
+                    <td style={{ padding: '10px 0', color: 'var(--muted)' }}>{i + 1}</td>
+                    <td style={{ padding: 8, fontWeight: 700 }}>{c.name}</td>
+                    <td style={{ padding: 8, color: 'var(--muted)' }}>{c.phone || '—'}</td>
+                    <td style={{ padding: 8, textAlign: 'right', fontWeight: 800, color: 'var(--danger)' }}>
+                      {formatCurrency(c.pending)}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         )}
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
-        <div style={{ background: '#fff', padding: 20, borderRadius: 12, border: '1px solid #e2e8f0' }}>
-          <h3 style={{ margin: '0 0 12px', fontSize: 15 }}>Business Profile</h3>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-            <input placeholder="Shop / Business name" value={biz.name || ''} onChange={(e) => setBiz({ ...biz, name: e.target.value })}
-              style={{ padding: 10, border: '1px solid #cbd5e1', borderRadius: 8 }} />
-            <input placeholder="Phone" value={biz.phone || ''} onChange={(e) => setBiz({ ...biz, phone: e.target.value })}
-              style={{ padding: 10, border: '1px solid #cbd5e1', borderRadius: 8 }} />
-            <input placeholder="Address" value={biz.address || ''} onChange={(e) => setBiz({ ...biz, address: e.target.value })}
-              style={{ padding: 10, border: '1px solid #cbd5e1', borderRadius: 8 }} />
-            <button onClick={saveBusiness}
-              style={{ padding: 10, background: '#185FA5', color: '#fff', border: 'none', borderRadius: 8, cursor: 'pointer', fontWeight: 600 }}>
-              Save Profile
-            </button>
+      {/* Business + Backup */}
+      <div style={{
+        display: 'grid',
+        gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))',
+        gap: 14
+      }}>
+        <div className="card" style={{ padding: 16 }}>
+          <h3 style={{ margin: '0 0 12px', fontSize: 15, fontWeight: 800 }}>Business Profile</h3>
+          <div style={{ display: 'grid', gap: 8 }}>
+            <input className="input" placeholder="Shop / Business name"
+              value={biz.name || ''} onChange={(e) => setBiz({ ...biz, name: e.target.value })} />
+            <input className="input" placeholder="Phone"
+              value={biz.phone || ''} onChange={(e) => setBiz({ ...biz, phone: e.target.value })} />
+            <input className="input" placeholder="Address"
+              value={biz.address || ''} onChange={(e) => setBiz({ ...biz, address: e.target.value })} />
+            <button className="btn btn-primary" onClick={saveBusiness}>Save Profile</button>
           </div>
         </div>
 
-        <div style={{ background: '#fff', padding: 20, borderRadius: 12, border: '1px solid #e2e8f0' }}>
-          <h3 style={{ margin: '0 0 8px', fontSize: 15 }}>Backup & Data</h3>
-          <p style={{ margin: '0 0 14px', fontSize: 12, color: '#64748b' }}>
-            Data is stored in this browser only. Download backup regularly.
+        <div className="card" style={{ padding: 16 }}>
+          <h3 style={{ margin: '0 0 8px', fontSize: 15, fontWeight: 800 }}>Backup & Data</h3>
+          <p style={{ margin: '0 0 12px', fontSize: 12, color: 'var(--muted)', lineHeight: 1.45 }}>
+            Data is stored in this browser only. Download backup regularly so data safe rahe.
           </p>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-            <button onClick={handleBackup}
-              style={{ padding: 10, background: '#185FA5', color: '#fff', border: 'none', borderRadius: 8, cursor: 'pointer', fontWeight: 600 }}>
+          <div style={{ display: 'grid', gap: 8 }}>
+            <button className="btn btn-primary" onClick={handleBackup}>
               Download Backup (JSON)
             </button>
             <input ref={fileRef} type="file" accept=".json" style={{ display: 'none' }} onChange={handleRestore} />
-            <button onClick={() => fileRef.current?.click()}
-              style={{ padding: 10, background: '#f1f5f9', border: '1px solid #cbd5e1', borderRadius: 8, cursor: 'pointer' }}>
+            <button className="btn btn-ghost" onClick={() => fileRef.current?.click()}>
               Restore from Backup
             </button>
-            <button onClick={() => {
-              if (window.confirm('Delete ALL data? Take backup first!')) {
-                clearAllData()
-                dispatch({ type: 'CLEAR_ALL' })
-              }
-            }} style={{ padding: 10, background: 'transparent', border: '1px solid #E24B4A', color: '#E24B4A', borderRadius: 8, cursor: 'pointer' }}>
+            <button
+              className="btn btn-danger-outline"
+              onClick={() => {
+                if (window.confirm('Delete ALL data? Take backup first!')) {
+                  clearAllData()
+                  dispatch({ type: 'CLEAR_ALL' })
+                }
+              }}
+            >
               Clear All Data
             </button>
           </div>
