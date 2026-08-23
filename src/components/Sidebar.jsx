@@ -1,288 +1,137 @@
-import { useState } from 'react';
-import {
-  Search,
-  Plus,
-  Users,
-  LayoutDashboard,
-  BookOpen,
-  ArrowUpDown,
-  Filter,
-  Moon,
-  Sun,
-  Menu,
-  X,
-} from 'lucide-react';
-import { useApp } from '../context/AppContext';
-import { formatCurrency, getCustomerStats } from '../utils/storage';
+import { useState } from 'react'
+import { useApp } from '../context/AppContext'
+import { formatCurrency, getCustomerStats } from '../utils/storage'
 
 export default function Sidebar({ mobileOpen, setMobileOpen }) {
   const {
-    filteredCustomers,
-    selectedId,
-    search,
-    sortBy,
-    sortDir,
-    filter,
-    theme,
-    view,
-    globalStats,
-    dispatch,
-    toggleTheme,
-  } = useApp();
+    filteredCustomers, selectedId, search, filter, theme, view,
+    globalStats, business, dispatch, toggleTheme,
+  } = useApp()
 
-  const [showAdd, setShowAdd] = useState(false);
-  const [newName, setNewName] = useState('');
+  const [showAdd, setShowAdd] = useState(false)
+  const [form, setForm] = useState({ name: '', phone: '', address: '' })
 
   const handleAdd = (e) => {
-    e.preventDefault();
-    if (!newName.trim()) return;
-    dispatch({ type: 'ADD_CUSTOMER', payload: { name: newName } });
-    setNewName('');
-    setShowAdd(false);
-    setMobileOpen(false);
-  };
+    e.preventDefault()
+    if (!form.name.trim()) return
+    dispatch({ type: 'ADD_CUSTOMER', payload: form })
+    setForm({ name: '', phone: '', address: '' })
+    setShowAdd(false)
+    setMobileOpen(false)
+  }
 
   return (
-    <>
-      {/* Mobile overlay */}
-      {mobileOpen && (
-        <div
-          className="fixed inset-0 z-40 bg-black/40 lg:hidden no-print"
-          onClick={() => setMobileOpen(false)}
-        />
-      )}
+    <aside style={{
+      width: 300, borderRight: '1px solid #e2e8f0', display: 'flex',
+      flexDirection: 'column', background: '#fff', height: '100%', flexShrink: 0
+    }} className="no-print">
+      <div style={{ padding: '16px 16px 12px', borderBottom: '1px solid #e2e8f0' }}>
+        <div style={{ fontSize: 11, color: '#64748b', fontWeight: 600, letterSpacing: 0.5 }}>DIGITAL KHATA</div>
+        <div style={{ fontSize: 16, fontWeight: 700, color: '#185FA5', marginTop: 2 }}>
+          {business?.name || 'My Business'}
+        </div>
+      </div>
 
-      <aside
-        className={`
-          sidebar fixed inset-y-0 left-0 z-50 flex w-80 flex-col border-r border-gray-200 bg-white
-          transition-transform duration-200 dark:border-gray-800 dark:bg-gray-900
-          lg:static lg:translate-x-0
-          ${mobileOpen ? 'translate-x-0' : '-translate-x-full'}
-          no-print
-        `}
-      >
-        {/* Header */}
-        <div className="flex items-center justify-between border-b border-gray-200 px-4 py-4 dark:border-gray-800">
-          <div className="flex items-center gap-2">
-            <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary text-white">
-              <BookOpen className="h-5 w-5" />
-            </div>
-            <div>
-              <h1 className="text-base font-bold text-gray-900 dark:text-white">Digital Khata</h1>
-              <p className="text-xs text-gray-500">Debit & Recovery</p>
-            </div>
-          </div>
-          <button
-            className="btn-ghost p-2 lg:hidden"
-            onClick={() => setMobileOpen(false)}
-            aria-label="Close menu"
-          >
-            <X className="h-5 w-5" />
+      <div style={{ display: 'flex', gap: 6, padding: 10, borderBottom: '1px solid #e2e8f0' }}>
+        {['ledger', 'dashboard'].map((v) => (
+          <button key={v} onClick={() => { dispatch({ type: 'SET_VIEW', payload: v }); if (v === 'dashboard') setMobileOpen(false) }}
+            style={{
+              flex: 1, padding: '8px', border: 'none', borderRadius: 8, cursor: 'pointer', fontWeight: 600, fontSize: 13,
+              background: view === v ? '#185FA515' : 'transparent', color: view === v ? '#185FA5' : '#64748b'
+            }}>
+            {v === 'ledger' ? 'Customers' : 'Dashboard'}
           </button>
-        </div>
+        ))}
+      </div>
 
-        {/* Nav tabs */}
-        <div className="flex gap-1 border-b border-gray-200 p-2 dark:border-gray-800">
-          <button
-            className={`flex flex-1 items-center justify-center gap-1.5 rounded-lg py-2 text-sm font-medium transition-colors ${
-              view === 'ledger'
-                ? 'bg-primary/10 text-primary'
-                : 'text-gray-600 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-800'
-            }`}
-            onClick={() => dispatch({ type: 'SET_VIEW', payload: 'ledger' })}
-          >
-            <Users className="h-4 w-4" />
-            Customers
-          </button>
-          <button
-            className={`flex flex-1 items-center justify-center gap-1.5 rounded-lg py-2 text-sm font-medium transition-colors ${
-              view === 'dashboard'
-                ? 'bg-primary/10 text-primary'
-                : 'text-gray-600 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-800'
-            }`}
-            onClick={() => {
-              dispatch({ type: 'SET_VIEW', payload: 'dashboard' });
-              setMobileOpen(false);
-            }}
-          >
-            <LayoutDashboard className="h-4 w-4" />
-            Dashboard
-          </button>
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, padding: 12, borderBottom: '1px solid #e2e8f0' }}>
+        <div style={{ background: '#fef2f2', padding: 10, borderRadius: 8 }}>
+          <div style={{ fontSize: 10, color: '#E24B4A', fontWeight: 600 }}>PENDING</div>
+          <div style={{ fontWeight: 700, color: '#E24B4A', fontSize: 14 }}>{formatCurrency(globalStats.pending, true)}</div>
         </div>
-
-        {/* Summary strip */}
-        <div className="grid grid-cols-2 gap-2 border-b border-gray-200 p-3 dark:border-gray-800">
-          <div className="rounded-lg bg-primary/5 p-2 dark:bg-primary/10">
-            <p className="text-[10px] font-medium uppercase tracking-wide text-primary">Pending</p>
-            <p className="text-sm font-bold text-danger">{formatCurrency(globalStats.pending, true)}</p>
-          </div>
-          <div className="rounded-lg bg-success/5 p-2 dark:bg-success/10">
-            <p className="text-[10px] font-medium uppercase tracking-wide text-success">Received</p>
-            <p className="text-sm font-bold text-success">{formatCurrency(globalStats.totalReceived, true)}</p>
-          </div>
+        <div style={{ background: '#f0fdf4', padding: 10, borderRadius: 8 }}>
+          <div style={{ fontSize: 10, color: '#3B6D11', fontWeight: 600 }}>RECEIVED</div>
+          <div style={{ fontWeight: 700, color: '#3B6D11', fontSize: 14 }}>{formatCurrency(globalStats.totalReceived, true)}</div>
         </div>
+      </div>
 
-        {/* Search + controls */}
-        <div className="space-y-2 border-b border-gray-200 p-3 dark:border-gray-800">
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
-            <input
-              type="search"
-              placeholder="Search customers..."
-              className="input pl-9"
-              value={search}
-              onChange={(e) => dispatch({ type: 'SET_SEARCH', payload: e.target.value })}
-            />
-          </div>
-          <div className="flex gap-2">
-            <div className="relative flex-1">
-              <Filter className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-gray-400" />
-              <select
-                className="input appearance-none py-1.5 pl-8 pr-2 text-xs"
-                value={filter}
-                onChange={(e) => dispatch({ type: 'SET_FILTER', payload: e.target.value })}
-              >
-                <option value="all">All</option>
-                <option value="pending">Pending</option>
-                <option value="settled">Settled</option>
-              </select>
-            </div>
-            <div className="relative flex-1">
-              <ArrowUpDown className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-gray-400" />
-              <select
-                className="input appearance-none py-1.5 pl-8 pr-2 text-xs"
-                value={`${sortBy}-${sortDir}`}
-                onChange={(e) => {
-                  const [by, dir] = e.target.value.split('-');
-                  dispatch({ type: 'SET_SORT', payload: { by, dir } });
-                }}
-              >
-                <option value="name-asc">Name A–Z</option>
-                <option value="name-desc">Name Z–A</option>
-                <option value="pending-desc">Pending ↓</option>
-                <option value="pending-asc">Pending ↑</option>
-                <option value="total-desc">Total ↓</option>
-                <option value="recent-desc">Recent</option>
-              </select>
-            </div>
-          </div>
-        </div>
+      <div style={{ padding: 12, borderBottom: '1px solid #e2e8f0' }}>
+        <input type="search" placeholder="Search name or phone..." value={search}
+          onChange={(e) => dispatch({ type: 'SET_SEARCH', payload: e.target.value })}
+          style={{ width: '100%', padding: '9px 12px', border: '1px solid #cbd5e1', borderRadius: 8, fontSize: 13, boxSizing: 'border-box' }} />
+        <select value={filter} onChange={(e) => dispatch({ type: 'SET_FILTER', payload: e.target.value })}
+          style={{ width: '100%', marginTop: 8, padding: 8, borderRadius: 8, border: '1px solid #cbd5e1', fontSize: 12 }}>
+          <option value="all">All customers</option>
+          <option value="pending">Pending only</option>
+          <option value="settled">Settled only</option>
+        </select>
+      </div>
 
-        {/* Customer list */}
-        <div className="flex-1 overflow-y-auto">
-          {filteredCustomers.length === 0 ? (
-            <div className="p-6 text-center text-sm text-gray-500">
-              {search ? 'No customers match your search.' : 'No customers yet. Add one or import Excel.'}
-            </div>
-          ) : (
-            <ul className="divide-y divide-gray-100 dark:divide-gray-800">
-              {filteredCustomers.map((c) => {
-                const stats = getCustomerStats(c);
-                const isSelected = c.id === selectedId && view === 'ledger';
-                return (
-                  <li key={c.id}>
-                    <button
-                      className={`flex w-full items-center gap-3 px-4 py-3 text-left transition-colors hover:bg-gray-50 dark:hover:bg-gray-800/50 ${
-                        isSelected ? 'bg-primary/5 border-l-2 border-l-primary' : ''
-                      }`}
-                      onClick={() => {
-                        dispatch({ type: 'SELECT', payload: c.id });
-                        setMobileOpen(false);
-                      }}
-                    >
-                      <div
-                        className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-sm font-semibold ${
-                          stats.pending > 0
-                            ? 'bg-danger/10 text-danger'
-                            : 'bg-success/10 text-success'
-                        }`}
-                      >
-                        {c.name.charAt(0).toUpperCase()}
-                      </div>
-                      <div className="min-w-0 flex-1">
-                        <p className="truncate text-sm font-medium text-gray-900 dark:text-gray-100">
-                          {c.name}
-                        </p>
-                        <p className="text-xs text-gray-500">
-                          {stats.txCount} txn · {formatCurrency(stats.totalAmount, true)}
-                        </p>
-                      </div>
-                      <div className="text-right">
-                        <p
-                          className={`text-sm font-semibold ${
-                            stats.pending > 0 ? 'text-danger' : 'text-success'
-                          }`}
-                        >
-                          {stats.pending > 0
-                            ? formatCurrency(stats.pending, true)
-                            : 'Settled'}
-                        </p>
-                      </div>
-                    </button>
-                  </li>
-                );
-              })}
-            </ul>
-          )}
-        </div>
-
-        {/* Footer actions */}
-        <div className="space-y-2 border-t border-gray-200 p-3 dark:border-gray-800">
-          {showAdd ? (
-            <form onSubmit={handleAdd} className="flex gap-2">
-              <input
-                autoFocus
-                className="input flex-1 py-1.5 text-sm"
-                placeholder="Customer name"
-                value={newName}
-                onChange={(e) => setNewName(e.target.value)}
-              />
-              <button type="submit" className="btn-primary py-1.5 px-3 text-sm">
-                Add
-              </button>
-              <button
-                type="button"
-                className="btn-ghost py-1.5 px-2"
-                onClick={() => setShowAdd(false)}
-              >
-                <X className="h-4 w-4" />
-              </button>
-            </form>
-          ) : (
-            <button className="btn-primary w-full" onClick={() => setShowAdd(true)}>
-              <Plus className="h-4 w-4" />
-              Add Customer
+      <div style={{ flex: 1, overflowY: 'auto' }}>
+        {filteredCustomers.length === 0 ? (
+          <div style={{ padding: 24, textAlign: 'center', color: '#94a3b8', fontSize: 13 }}>No customers yet</div>
+        ) : filteredCustomers.map((c) => {
+          const stats = getCustomerStats(c)
+          const active = c.id === selectedId && view === 'ledger'
+          return (
+            <button key={c.id} onClick={() => { dispatch({ type: 'SELECT', payload: c.id }); setMobileOpen(false) }}
+              style={{
+                width: '100%', display: 'flex', gap: 10, alignItems: 'center', padding: '12px 14px',
+                border: 'none', cursor: 'pointer', textAlign: 'left',
+                background: active ? '#185FA510' : 'transparent',
+                borderLeft: active ? '3px solid #185FA5' : '3px solid transparent'
+              }}>
+              <div style={{
+                width: 36, height: 36, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                fontWeight: 700, fontSize: 14, flexShrink: 0,
+                background: stats.pending > 0 ? '#fef2f2' : '#f0fdf4',
+                color: stats.pending > 0 ? '#E24B4A' : '#3B6D11'
+              }}>{c.name.charAt(0).toUpperCase()}</div>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontWeight: 600, fontSize: 13, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{c.name}</div>
+                <div style={{ fontSize: 11, color: '#94a3b8' }}>{c.phone || `${stats.txCount} entries`}</div>
+              </div>
+              <div style={{ fontWeight: 700, fontSize: 12, color: stats.pending > 0 ? '#E24B4A' : '#3B6D11' }}>
+                {stats.pending > 0 ? formatCurrency(stats.pending, true) : '✓'}
+              </div>
             </button>
-          )}
-          <button className="btn-ghost w-full text-xs" onClick={toggleTheme}>
-            {theme === 'dark' ? (
-              <>
-                <Sun className="h-4 w-4" /> Light mode
-              </>
-            ) : (
-              <>
-                <Moon className="h-4 w-4" /> Dark mode
-              </>
-            )}
+          )
+        })}
+      </div>
+
+      <div style={{ padding: 12, borderTop: '1px solid #e2e8f0' }}>
+        {showAdd ? (
+          <form onSubmit={handleAdd} style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+            <input required placeholder="Customer name *" value={form.name}
+              onChange={(e) => setForm({ ...form, name: e.target.value })}
+              style={{ padding: 8, border: '1px solid #cbd5e1', borderRadius: 6, fontSize: 13 }} />
+            <input placeholder="Phone (03xx...)" value={form.phone}
+              onChange={(e) => setForm({ ...form, phone: e.target.value })}
+              style={{ padding: 8, border: '1px solid #cbd5e1', borderRadius: 6, fontSize: 13 }} />
+            <input placeholder="Address (optional)" value={form.address}
+              onChange={(e) => setForm({ ...form, address: e.target.value })}
+              style={{ padding: 8, border: '1px solid #cbd5e1', borderRadius: 6, fontSize: 13 }} />
+            <div style={{ display: 'flex', gap: 8 }}>
+              <button type="submit" style={{ flex: 1, padding: 8, background: '#185FA5', color: '#fff', border: 'none', borderRadius: 6, cursor: 'pointer', fontWeight: 600 }}>Add</button>
+              <button type="button" onClick={() => setShowAdd(false)}
+                style={{ padding: '8px 12px', border: '1px solid #cbd5e1', borderRadius: 6, background: '#fff', cursor: 'pointer' }}>✕</button>
+            </div>
+          </form>
+        ) : (
+          <button onClick={() => setShowAdd(true)}
+            style={{ width: '100%', padding: 10, background: '#185FA5', color: '#fff', border: 'none', borderRadius: 8, cursor: 'pointer', fontWeight: 600 }}>
+            + Add Customer
           </button>
-        </div>
-      </aside>
-    </>
-  );
+        )}
+        <button onClick={toggleTheme}
+          style={{ width: '100%', marginTop: 8, padding: 8, background: 'transparent', border: '1px solid #cbd5e1', borderRadius: 6, cursor: 'pointer', fontSize: 12 }}>
+          {theme === 'dark' ? '☀ Light mode' : '🌙 Dark mode'}
+        </button>
+      </div>
+    </aside>
+  )
 }
 
 export function MobileHeader({ setMobileOpen }) {
-  return (
-    <header className="sticky top-0 z-30 flex items-center gap-3 border-b border-gray-200 bg-white px-4 py-3 dark:border-gray-800 dark:bg-gray-900 lg:hidden no-print">
-      <button className="btn-ghost p-2" onClick={() => setMobileOpen(true)} aria-label="Open menu">
-        <Menu className="h-5 w-5" />
-      </button>
-      <div className="flex items-center gap-2">
-        <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary text-white">
-          <BookOpen className="h-4 w-4" />
-        </div>
-        <span className="font-semibold text-gray-900 dark:text-white">Digital Khata</span>
-      </div>
-    </header>
-  );
+  return null
 }
