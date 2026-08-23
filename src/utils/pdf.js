@@ -140,7 +140,6 @@ export function downloadCustomerPDF(customer, business = {}) {
   return doc
 }
 
-/** Build WhatsApp text — pending vs settled */
 export function buildWhatsAppMessage(customer, business = {}) {
   const stats = getCustomerStats(customer)
   const shop = business.name || 'Digital Khata'
@@ -157,8 +156,9 @@ export function buildWhatsAppMessage(customer, business = {}) {
       `Total Received: ${formatCurrency(stats.totalReceived)}`,
       `Pending: ${formatCurrency(0)}`,
       '',
-      'Aap ke ehtimam aur barwaqt payment ka *dil se shukriya*.',
-      'Humari services dobara istemal karne ka intezar rahega.',
+      'Aap ki barwaqt payment ka *dil se shukriya*.',
+      'Humari services dobara istemal Zaror kren .',
+      'Hamy Apka intezar rahega.',
       '',
       'JazakAllah Khair',
       `*${shop}*`,
@@ -176,8 +176,9 @@ export function buildWhatsAppMessage(customer, business = {}) {
     `• Received: *${formatCurrency(stats.totalReceived)}*`,
     `• *Pending Balance: ${formatCurrency(pending)}*`,
     '',
-    'Barwaqt pending clear karne ki request hai.',
-    'Koi masla ho to rabta karein.',
+    'Apsay Barwaqt Debit clear karne ki request hai.',
+    'Takay Services Istamal krny main Koi masla na ho.',
+    'Agar Koi Masla ho to rabta karein.',
     '',
     'Shukriya',
     `*${shop}*`,
@@ -195,8 +196,7 @@ export function openWhatsAppText(customer, business = {}) {
   return true
 }
 
-/** PDF download + WhatsApp text (attach PDF manually / share on mobile) */
-export async function openWhatsAppWithPDF(customer, business = {}) {
+export function openWhatsAppWithPDF(customer, business = {}) {
   const phone = normalizePhoneForWhatsApp(customer.phone)
   if (!phone) {
     alert('Customer phone number missing or invalid. Please add a valid phone first.')
@@ -205,17 +205,13 @@ export async function openWhatsAppWithPDF(customer, business = {}) {
 
   const stats = getCustomerStats(customer)
   const shop = business.name || 'Digital Khata'
-  const safeName = (customer.name || 'customer').replace(/[^\w\-]+/g, '_')
 
-  // Generate PDF blob
-  const doc = new jsPDF()
-  // reuse download logic by calling download then also open WA
   downloadCustomerPDF(customer, business)
 
   const note =
     stats.pending <= 0
-      ? `*${shop}*\n\nAssalam-o-Alaikum ${customer.name},\n\nAap ka account clear hai. Statement PDF attach hai.\nShukriya!`
-      : `*${shop} — Statement*\n\nAssalam-o-Alaikum ${customer.name},\n\nPending: *${formatCurrency(stats.pending)}*\n\nStatement PDF download ho gayi hai — please usay attach karke bhej dein / mobile pe share karein.`
+      ? `*${shop}*\n\nAssalam-o-Alaikum ${customer.name},\n\nAap ka account clear hai. Statement PDF download ho chuki hai — please attach karke bhej dein.\nShukriya!`
+      : `*${shop} — Statement*\n\nAssalam-o-Alaikum ${customer.name},\n\nPending: *${formatCurrency(stats.pending)}*\n\nStatement PDF download ho gayi hai — please usay WhatsApp pe attach karke bhej dein.`
 
   window.open('https://wa.me/' + phone + '?text=' + encodeURIComponent(note), '_blank')
   return true
