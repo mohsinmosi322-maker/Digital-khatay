@@ -7,17 +7,51 @@ import Dashboard from './components/Dashboard'
 function Toast() {
   const { toast } = useApp()
   if (!toast) return null
-  const cls =
-    toast.type === 'success' ? 'toast toast-success' :
-    toast.type === 'danger' ? 'toast toast-danger' :
-    'toast toast-info'
+
+  const bg =
+    toast.type === 'success'
+      ? '#2f6b12'
+      : toast.type === 'danger'
+        ? '#d93b3a'
+        : '#185FA5'
+
   return (
-    <div className="toast-wrap no-print">
-      <div className={cls}>{toast.message}</div>
+    <div
+      className="no-print"
+      style={{
+        position: 'fixed',
+        left: 0,
+        right: 0,
+        top: 0,
+        bottom: 0,
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        zIndex: 9999,
+        pointerEvents: 'none',
+        background: 'rgba(15, 23, 42, 0.25)',
+      }}
+    >
+      <div
+        style={{
+          pointerEvents: 'auto',
+          minWidth: 220,
+          maxWidth: '90vw',
+          padding: '16px 28px',
+          borderRadius: 14,
+          background: bg,
+          color: '#fff',
+          fontWeight: 700,
+          fontSize: 15,
+          textAlign: 'center',
+          boxShadow: '0 16px 40px rgba(0,0,0,0.25)',
+        }}
+      >
+        {toast.message}
+      </div>
     </div>
   )
 }
-
 function AppShell() {
   const { view, loaded, business } = useApp()
   const [mobileOpen, setMobileOpen] = useState(false)
