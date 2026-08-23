@@ -123,17 +123,45 @@ button, input, select { font-family: inherit; }
 }
 
 @media (max-width: 900px) {
+  .app-shell {
+    flex-direction: column;
+    height: 100vh;
+    height: 100dvh;
+  }
+
+  .mobile-header {
+    display: flex;
+    width: 100%;
+  }
+
   .sidebar {
     position: fixed;
-    left: 0; top: 0; bottom: 0;
+    left: 0;
+    top: 0;
+    bottom: 0;
+    width: min(300px, 86vw);
+    max-width: 300px;
     transform: translateX(-105%);
     transition: transform 0.22s ease;
-    box-shadow: 8px 0 30px rgba(0,0,0,0.12);
+    box-shadow: 8px 0 30px rgba(0, 0, 0, 0.18);
+    z-index: 50;
   }
-  .sidebar.open { transform: translateX(0); }
-  .mobile-header { display: flex; }
-  .overlay.show { display: block; }
-  .hide-mobile { display: none !important; }
+
+  .sidebar.open {
+    transform: translateX(0);
+  }
+
+  .overlay.show {
+    display: block;
+    z-index: 45;
+  }
+
+  .main-panel {
+    flex: 1;
+    width: 100% !important;
+    min-width: 0;
+    overflow: hidden;
+  }
 }
 
 @media print {
