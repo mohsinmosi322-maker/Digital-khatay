@@ -222,25 +222,37 @@ export default function Ledger() {
             }}
           >
             {[
-              ['date', 'Date', 'date'],
-              ['billNo', 'Bill No', 'text'],
-              ['amount', 'Amount (Debit)', 'number'],
-              ['received', 'Received', 'number'],
-              ['receivedDate', 'Rec. Date', 'date'],
-            ].map(([key, label, type]) => (
-              <div key={key}>
-                <label style={{ fontSize: 11, color: 'var(--muted)', fontWeight: 600 }}>{label}</label>
-                <input
-                  className="input"
-                  type={type}
-                  min={type === 'number' ? '0' : undefined}
-                  value={addForm[key]}
-                  required={key === 'date'}
-                  onChange={(e) => setAddForm({ ...addForm, [key]: e.target.value })}
-                  style={{ marginTop: 4 }}
-                />
-              </div>
-            ))}
+  ['date', 'Date', 'date'],
+  ['billNo', 'Bill No', 'text'],
+  ['amount', 'Amount (Debit)', 'number'],
+  ['received', 'Received', 'number'],
+  ['receivedDate', 'Rec. Date', 'date'],
+].map(([key, label, type]) => (
+  <div key={key}>
+    <label style={{ fontSize: 11, color: 'var(--muted)', fontWeight: 600 }}>{label}</label>
+    <input
+      className="input"
+      type={type}
+      min={type === 'number' ? '0' : undefined}
+      step={type === 'number' ? '1' : undefined}
+      value={addForm[key]}
+      required={key === 'date'}
+      onKeyDown={(e) => {
+        if (type === 'number' && (e.key === '-' || e.key === 'e' || e.key === 'E' || e.key === '+')) {
+          e.preventDefault()
+        }
+      }}
+      onChange={(e) => {
+        let val = e.target.value
+        if (type === 'number') {
+          val = val.replace(/[^\d.]/g, '')
+        }
+        setAddForm({ ...addForm, [key]: val })
+      }}
+      style={{ marginTop: 4 }}
+    />
+  </div>
+))}
           </div>
           <div style={{ marginTop: 12, display: 'flex', gap: 8, flexWrap: 'wrap' }}>
             <button type="submit" className="btn btn-primary">
