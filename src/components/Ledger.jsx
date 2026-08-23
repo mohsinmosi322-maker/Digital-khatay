@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { useApp } from '../context/AppContext'
 import { formatCurrency, formatDate, getCustomerStats } from '../utils/storage'
 import { downloadCustomerPDF, openWhatsAppStatement } from '../utils/pdf'
+import { downloadCustomerPDF, openWhatsAppText, openWhatsAppWithPDF } from '../utils/pdf'
 
 export default function Ledger() {
   const { selectedCustomer, business, dispatch } = useApp()
@@ -13,6 +14,7 @@ export default function Ledger() {
   const [editOpen, setEditOpen] = useState(false)
   const [editForm, setEditForm] = useState({ name: '', phone: '', cnic: '', address: '' })
   const [confirmDel, setConfirmDel] = useState(null)
+  const [waOpen, setWaOpen] = useState(false)
 
   if (!selectedCustomer) {
     return (
@@ -144,6 +146,9 @@ const handleSave = (e) => {
             </button>
             <button className="btn btn-ghost" onClick={() => window.print()}>
               Print
+            </button>
+            <button className="btn btn-success" onClick={() => setWaOpen(true)}>
+            WhatsApp
             </button>
             <button
               className="btn btn-danger-outline"
@@ -524,3 +529,57 @@ const handleSave = (e) => {
     </div>
   )
 }
+{waOpen && (
+  <div
+    className="no-print"
+    style={{
+      position: 'fixed',
+      inset: 0,
+      background: 'rgba(15,23,42,0.5)',
+      display: 'grid',
+      placeItems: 'center',
+      zIndex: 200,
+      padding: 16,
+    }}
+  >
+    <div className="card" style={{ width: 'min(380px, 100%)', padding: 22 }}>
+      <h3 style={{ margin: '0 0 8px', fontWeight: 800 }}>Send on WhatsApp</h3>
+      <p style={{ margin: '0 0 16px', fontSize: 13, color: 'var(--muted)' }}>
+        Message ya PDF statement choose karein
+      </p>
+
+      <div style={{ display: 'grid', gap: 10 }}>
+        <button
+          className="btn btn-success"
+          style={{ padding: 14, fontSize: 15 }}
+          onClick={() => {
+            openWhatsAppText(selectedCustomer, business)
+            setWaOpen(false)
+          }}
+        >
+          💬 Message
+        </button>
+
+        <button
+          className="btn btn-primary"
+          style={{ padding: 14, fontSize: 15 }}
+          onClick={() => {
+            openWhatsAppWithPDF(selectedCustomer, business)
+            setWaOpen(false)
+          }}
+        >
+          📄 PDF Statement
+        </button>
+
+        <button className="btn btn-ghost" onClick={() => setWaOpen(false)}>
+          Cancel
+        </button>
+      </div>
+
+      <p style={{ margin: '14px 0 0', fontSize: 11, color: 'var(--muted)', lineHeight: 1.4 }}>
+        PDF option: file download hoti hai + WhatsApp khulta hai. Mobile pe PDF attach karke send karein.
+        (WhatsApp link sirf text bhej sakta hai, file auto-attach nahi hoti.)
+      </p>
+    </div>
+  </div>
+)}
