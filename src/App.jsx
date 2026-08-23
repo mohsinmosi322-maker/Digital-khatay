@@ -37,28 +37,32 @@ function AppShell() {
     )
   }
 
-  return (
-    <div className="app-shell">
-      <div className={`overlay ${mobileOpen ? 'show' : ''} no-print`} onClick={() => setMobileOpen(false)} />
+return (
+  <div className="app-shell">
+    <div
+      className={`overlay ${mobileOpen ? 'show' : ''} no-print`}
+      onClick={() => setMobileOpen(false)}
+    />
 
-      <header className="mobile-header no-print">
-        <button className="btn btn-ghost" onClick={() => setMobileOpen(true)} style={{ padding: '8px 10px' }}>☰</button>
-        <div>
-          <div style={{ fontWeight: 700, fontSize: 14 }}>{business?.name || 'Digital Khata'}</div>
-          <div style={{ fontSize: 11, color: 'var(--muted)' }}>Debit & Recovery</div>
-        </div>
-      </header>
+    <header className="mobile-header no-print">
+      <button className="btn btn-ghost" onClick={() => setMobileOpen(true)} style={{ padding: '8px 10px' }}>
+        ☰
+      </button>
+      <div>
+        <div style={{ fontWeight: 700, fontSize: 14 }}>{business?.name || 'Digital Khata'}</div>
+        <div style={{ fontSize: 11, color: 'var(--muted)' }}>Debit & Recovery</div>
+      </div>
+    </header>
 
-      <Sidebar mobileOpen={mobileOpen} setMobileOpen={setMobileOpen} />
+    <Sidebar mobileOpen={mobileOpen} setMobileOpen={setMobileOpen} />
 
-      <main className="main-panel">
-        {view === 'dashboard' ? <Dashboard /> : <Ledger />}
-      </main>
+    <main className="main-panel">
+      {view === 'dashboard' ? <Dashboard /> : <Ledger />}
+    </main>
 
-      <Toast />
-    </div>
-  )
-}
+    <Toast />
+  </div>
+)
 
 export default function App() {
   return (
