@@ -7,7 +7,7 @@ import Dashboard from './components/Dashboard'
 function AnimatedFeedback() {
   const { toast } = useApp()
   if (!toast) return null
-
+  
   // danger = red, but still show tick unless message is delete/error
   const isRed = toast.type === 'danger'
   const bg = isRed ? '#d93b3a' : toast.type === 'success' ? '#2f6b12' : '#185FA5'
