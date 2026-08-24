@@ -12,17 +12,22 @@ const firebaseConfig = {
   measurementId: 'G-SRPKQBIPTG',
 }
 
+// Named database (not "(default)") — matches Firebase console path
+const FIRESTORE_DB_ID = 'digital-khatay'
+
 const app = initializeApp(firebaseConfig)
 export const auth = getAuth(app)
 
-// Better connectivity on some networks
 let db
 try {
-  db = initializeFirestore(app, {
-    experimentalForceLongPolling: true,
-  })
+  db = initializeFirestore(
+    app,
+    { experimentalForceLongPolling: true },
+    FIRESTORE_DB_ID
+  )
 } catch {
-  db = getFirestore(app)
+  db = getFirestore(app, FIRESTORE_DB_ID)
 }
+
 export { db }
 export default app
