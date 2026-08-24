@@ -18,7 +18,9 @@ function AnimatedFeedback() {
     msg.includes('required') ||
     msg.includes('not allowed') ||
     msg.includes('invalid') ||
-    msg.includes('enter a valid')
+    msg.includes('enter a valid') ||
+    msg.includes('pending balance') ||
+    msg.includes('overpaid')
 
   return (
     <div
@@ -33,6 +35,7 @@ function AnimatedFeedback() {
       }}
     >
       <div
+        className="anim-pop"
         style={{
           background: 'var(--card)',
           borderRadius: 20,
@@ -72,7 +75,7 @@ function AnimatedFeedback() {
 
 function KhataShell() {
   const { view, loaded, business } = useApp()
-  const { profile, logout } = useAuth()
+  const { profile } = useAuth()
   const [mobileOpen, setMobileOpen] = useState(false)
 
   if (!loaded) {
@@ -99,9 +102,6 @@ function KhataShell() {
           </div>
           <div style={{ fontSize: 11, color: 'var(--muted)' }}>Debit & Recovery</div>
         </div>
-        <button className="btn btn-ghost" style={{ marginLeft: 'auto' }} onClick={logout}>
-          Logout
-        </button>
       </header>
       <Sidebar mobileOpen={mobileOpen} setMobileOpen={setMobileOpen} />
       <main className="main-panel">{view === 'dashboard' ? <Dashboard /> : <Ledger />}</main>
