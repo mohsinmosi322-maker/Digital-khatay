@@ -79,42 +79,29 @@ function AppFooter() {
   const name = branding?.appName || 'Digital Khata'
   const pub = branding?.publisherName || ''
   const remarks = branding?.publisherRemarks || ''
-  if (!pub && !remarks) {
-    return (
-      <footer
-        className="no-print app-footer"
-        style={{
-          textAlign: 'center',
-          padding: '8px 12px',
-          fontSize: 11,
-          color: 'var(--muted)',
-          borderTop: '1px solid var(--border)',
-          background: 'var(--card)',
-        }}
-      >
-        {name}
-      </footer>
-    )
-  }
+
   return (
     <footer
       className="no-print app-footer"
       style={{
         textAlign: 'center',
-        padding: '8px 12px',
+        padding: '10px 12px',
         fontSize: 11,
         color: 'var(--muted)',
         borderTop: '1px solid var(--border)',
         background: 'var(--card)',
-        lineHeight: 1.4,
+        lineHeight: 1.45,
+        flexShrink: 0,
       }}
     >
       <div style={{ fontWeight: 700, color: 'var(--text)' }}>{name}</div>
-      <div>
-        {pub}
-        {pub && remarks ? ' · ' : ''}
-        {remarks}
-      </div>
+      {(pub || remarks) && (
+        <div style={{ marginTop: 2 }}>
+          {pub}
+          {pub && remarks ? ' · ' : ''}
+          {remarks}
+        </div>
+      )}
     </footer>
   )
 }
@@ -135,7 +122,7 @@ function KhataShell() {
   }
 
   return (
-    <div className="app-shell" style={{ gridTemplateRows: 'auto 1fr auto' }}>
+    <div className="app-shell">
       <div
         className={`overlay ${mobileOpen ? 'show' : ''} no-print`}
         onClick={() => setMobileOpen(false)}
@@ -152,7 +139,7 @@ function KhataShell() {
         </div>
       </header>
       <Sidebar mobileOpen={mobileOpen} setMobileOpen={setMobileOpen} />
-      <main className="main-panel" style={{ display: 'flex', flexDirection: 'column' }}>
+      <main className="main-panel" style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
         <div style={{ flex: 1, minHeight: 0, overflow: 'hidden' }}>
           {view === 'dashboard' ? <Dashboard /> : <Ledger />}
         </div>
