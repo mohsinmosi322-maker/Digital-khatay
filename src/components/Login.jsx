@@ -13,11 +13,23 @@ export default function Login() {
   const [resetMsg, setResetMsg] = useState(
     'Your password reset request has been sent to admin. For more information contact Admin on WhatsApp: 03099101961'
   )
+  const [brand, setBrand] = useState({
+    appName: 'Digital Khata',
+    publisherName: '',
+    publisherRemarks: '',
+  })
 
   useEffect(() => {
     getDoc(doc(db, 'settings', 'app'))
       .then((s) => {
-        if (s.exists() && s.data().resetMessage) setResetMsg(s.data().resetMessage)
+        if (!s.exists()) return
+        const d = s.data()
+        if (d.resetMessage) setResetMsg(d.resetMessage)
+        setBrand({
+          appName: d.appName || d.businessName || 'Digital Khata',
+          publisherName: d.publisherName || '',
+          publisherRemarks: d.publisherRemarks || '',
+        })
       })
       .catch(() => {})
   }, [])
@@ -62,160 +74,182 @@ export default function Login() {
     <div
       style={{
         minHeight: '100vh',
-        display: 'grid',
-        placeItems: 'center',
+        display: 'flex',
+        flexDirection: 'column',
         background: 'linear-gradient(135deg, #0f4a85 0%, #185FA5 50%, #3B82F6 100%)',
-        padding: 16,
       }}
     >
-      <form
-        onSubmit={mode === 'login' ? handleLogin : handleForgot}
+      <div style={{ flex: 1, display: 'grid', placeItems: 'center', padding: 16 }}>
+        <form
+          onSubmit={mode === 'login' ? handleLogin : handleForgot}
+          className="anim-pop"
+          style={{
+            width: 'min(400px, 100%)',
+            background: '#fff',
+            borderRadius: 16,
+            padding: 28,
+            boxShadow: '0 24px 60px rgba(0,0,0,0.2)',
+          }}
+        >
+          <div style={{ textAlign: 'center', marginBottom: 20 }}>
+            <div
+              style={{
+                width: 52,
+                height: 52,
+                borderRadius: 14,
+                margin: '0 auto 10px',
+                background: 'linear-gradient(135deg, #185FA5, #3B82F6)',
+                color: '#fff',
+                display: 'grid',
+                placeItems: 'center',
+                fontWeight: 800,
+                fontSize: 18,
+              }}
+            >
+              DK
+            </div>
+            <h1 style={{ margin: 0, fontSize: 22, fontWeight: 800, color: '#0f172a' }}>
+              {brand.appName}
+            </h1>
+            <p style={{ margin: '6px 0 0', fontSize: 13, color: '#64748b' }}>
+              {mode === 'login' ? 'Sign in to your account' : 'Password reset request'}
+            </p>
+          </div>
+
+          {authError && (
+            <div
+              style={{
+                background: '#fef2f2',
+                color: '#d93b3a',
+                padding: 12,
+                borderRadius: 10,
+                fontSize: 13,
+                marginBottom: 12,
+                fontWeight: 600,
+                lineHeight: 1.4,
+              }}
+            >
+              {authError}
+            </div>
+          )}
+          {info && (
+            <div
+              style={{
+                background: '#f0fdf4',
+                color: '#2f6b12',
+                padding: 12,
+                borderRadius: 10,
+                fontSize: 13,
+                marginBottom: 12,
+                fontWeight: 600,
+                lineHeight: 1.45,
+              }}
+            >
+              {info}
+            </div>
+          )}
+
+          <label style={{ fontSize: 12, fontWeight: 700, color: '#64748b' }}>Email</label>
+          <input
+            type="email"
+            required
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            style={{
+              width: '100%',
+              padding: 12,
+              margin: '6px 0 12px',
+              border: '1px solid #e2e8f0',
+              borderRadius: 10,
+              fontSize: 14,
+              boxSizing: 'border-box',
+            }}
+          />
+
+          {mode === 'login' && (
+            <>
+              <label style={{ fontSize: 12, fontWeight: 700, color: '#64748b' }}>Password</label>
+              <input
+                type="password"
+                required
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                style={{
+                  width: '100%',
+                  padding: 12,
+                  margin: '6px 0 16px',
+                  border: '1px solid #e2e8f0',
+                  borderRadius: 10,
+                  fontSize: 14,
+                  boxSizing: 'border-box',
+                }}
+              />
+            </>
+          )}
+
+          <button
+            type="submit"
+            disabled={busy}
+            style={{
+              width: '100%',
+              padding: 12,
+              background: '#185FA5',
+              color: '#fff',
+              border: 'none',
+              borderRadius: 10,
+              fontWeight: 700,
+              fontSize: 15,
+              cursor: busy ? 'wait' : 'pointer',
+            }}
+          >
+            {busy ? 'Please wait…' : mode === 'login' ? 'Login' : 'Send Request to Admin'}
+          </button>
+
+          <button
+            type="button"
+            onClick={() => {
+              setMode(mode === 'login' ? 'forgot' : 'login')
+              setAuthError('')
+              setInfo('')
+            }}
+            style={{
+              width: '100%',
+              marginTop: 12,
+              background: 'none',
+              border: 'none',
+              color: '#185FA5',
+              fontWeight: 600,
+              fontSize: 13,
+              cursor: 'pointer',
+            }}
+          >
+            {mode === 'login' ? 'Forgot password?' : '← Back to Login'}
+          </button>
+
+          <p style={{ margin: '16px 0 0', fontSize: 11, color: '#94a3b8', textAlign: 'center' }}>
+            Accounts are created by Admin only.
+          </p>
+        </form>
+      </div>
+
+      <footer
         style={{
-          width: 'min(400px, 100%)',
-          background: '#fff',
-          borderRadius: 16,
-          padding: 28,
-          boxShadow: '0 24px 60px rgba(0,0,0,0.2)',
+          textAlign: 'center',
+          padding: '12px 16px 18px',
+          color: 'rgba(255,255,255,0.85)',
+          fontSize: 12,
+          lineHeight: 1.45,
         }}
       >
-        <div style={{ textAlign: 'center', marginBottom: 20 }}>
-          <div
-            style={{
-              width: 48,
-              height: 48,
-              borderRadius: 12,
-              margin: '0 auto 10px',
-              background: 'linear-gradient(135deg, #185FA5, #3B82F6)',
-              color: '#fff',
-              display: 'grid',
-              placeItems: 'center',
-              fontWeight: 800,
-            }}
-          >
-            DK
-          </div>
-          <h1 style={{ margin: 0, fontSize: 22, fontWeight: 800, color: '#0f172a' }}>
-            Digital Khata
-          </h1>
-          <p style={{ margin: '6px 0 0', fontSize: 13, color: '#64748b' }}>
-            {mode === 'login' ? 'Sign in to your account' : 'Password reset request'}
-          </p>
-        </div>
-
-        {authError && (
-          <div
-            style={{
-              background: '#fef2f2',
-              color: '#d93b3a',
-              padding: 12,
-              borderRadius: 10,
-              fontSize: 13,
-              marginBottom: 12,
-              fontWeight: 600,
-              lineHeight: 1.4,
-            }}
-          >
-            {authError}
+        <div style={{ fontWeight: 700 }}>{brand.appName}</div>
+        {(brand.publisherName || brand.publisherRemarks) && (
+          <div style={{ marginTop: 4, opacity: 0.9 }}>
+            {brand.publisherName}
+            {brand.publisherName && brand.publisherRemarks ? ' · ' : ''}
+            {brand.publisherRemarks}
           </div>
         )}
-        {info && (
-          <div
-            style={{
-              background: '#f0fdf4',
-              color: '#2f6b12',
-              padding: 12,
-              borderRadius: 10,
-              fontSize: 13,
-              marginBottom: 12,
-              fontWeight: 600,
-              lineHeight: 1.45,
-            }}
-          >
-            {info}
-          </div>
-        )}
-
-        <label style={{ fontSize: 12, fontWeight: 700, color: '#64748b' }}>Email</label>
-        <input
-          type="email"
-          required
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
-          style={{
-            width: '100%',
-            padding: 12,
-            margin: '6px 0 12px',
-            border: '1px solid #e2e8f0',
-            borderRadius: 10,
-            fontSize: 14,
-            boxSizing: 'border-box',
-          }}
-        />
-
-        {mode === 'login' && (
-          <>
-            <label style={{ fontSize: 12, fontWeight: 700, color: '#64748b' }}>Password</label>
-            <input
-              type="password"
-              required
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              style={{
-                width: '100%',
-                padding: 12,
-                margin: '6px 0 16px',
-                border: '1px solid #e2e8f0',
-                borderRadius: 10,
-                fontSize: 14,
-                boxSizing: 'border-box',
-              }}
-            />
-          </>
-        )}
-
-        <button
-          type="submit"
-          disabled={busy}
-          style={{
-            width: '100%',
-            padding: 12,
-            background: '#185FA5',
-            color: '#fff',
-            border: 'none',
-            borderRadius: 10,
-            fontWeight: 700,
-            fontSize: 15,
-            cursor: busy ? 'wait' : 'pointer',
-          }}
-        >
-          {busy ? 'Please wait…' : mode === 'login' ? 'Login' : 'Send Request to Admin'}
-        </button>
-
-        <button
-          type="button"
-          onClick={() => {
-            setMode(mode === 'login' ? 'forgot' : 'login')
-            setAuthError('')
-            setInfo('')
-          }}
-          style={{
-            width: '100%',
-            marginTop: 12,
-            background: 'none',
-            border: 'none',
-            color: '#185FA5',
-            fontWeight: 600,
-            fontSize: 13,
-            cursor: 'pointer',
-          }}
-        >
-          {mode === 'login' ? 'Forgot password?' : '← Back to Login'}
-        </button>
-
-        <p style={{ margin: '16px 0 0', fontSize: 11, color: '#94a3b8', textAlign: 'center' }}>
-          Accounts are created by Admin only.
-        </p>
-      </form>
+      </footer>
     </div>
   )
 }
