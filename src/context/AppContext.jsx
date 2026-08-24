@@ -1,4 +1,5 @@
 import { createContext, useContext, useEffect, useReducer, useCallback } from 'react'
+import { doc, getDoc } from 'firebase/firestore'
 import {
   loadCustomers,
   saveCustomers,
@@ -9,6 +10,8 @@ import {
   generateId,
   getCustomerStats,
 } from '../utils/storage'
+import { db } from '../firebase'
+import { useAuth } from './AuthContext'
 
 const AppContext = createContext(null)
 
@@ -114,7 +117,7 @@ function reducer(state, action) {
             updatedAt: new Date().toISOString(),
           }
         }),
-      
+        toast,
       }
     }
     case 'UPDATE_TRANSACTION': {
@@ -190,19 +193,86 @@ function reducer(state, action) {
   }
 }
 
+async function resolveBusiness(profile) {
+  // 1) Admin platform business (settings/app)
+  let business = {
+    name: 'My Business',
+    phone: '',
+    address: '',
+    currency: 'PKR',
+  }
+
+  try {
+    const sSnap = await getDoc(doc(db, 'settings', 'app'))
+    if (sSnap.exists()) {
+      const s = sSnap.data()
+      if (s.businessName) {
+        business = {
+          name: s.businessName,
+          phone: s.businessPhone || '',
+          address: s.businessAddress || '',
+          currency: s.businessCurrency || 'PKR',
+        }
+      }
+    }
+  } catch (e) {
+    console.warn('settings/app', e)
+  }
+
+  // 2) Per-user businessName from profile (set when admin creates/edits user)
+  if (profile?.businessName) {
+    business = { ...business, name: profile.businessName }
+  }
+
+  // 3) Optional per-user business/{uid} doc
+  if (profile?.id) {
+    try {
+      const bSnap = await getDoc(doc(db, 'business', profile.id))
+      if (bSnap.exists()) {
+        const b = bSnap.data()
+        business = {
+          name: b.name || business.name,
+          phone: b.phone || business.phone,
+          address: b.address || business.address,
+          currency: b.currency || business.currency,
+        }
+      }
+    } catch (e) {
+      console.warn('business/uid', e)
+    }
+  }
+
+  // 4) Local cache only if still default empty name somehow
+  if (!business.name) {
+    const local = loadBusiness()
+    if (local?.name) business = { ...business, ...local }
+  }
+
+  return business
+}
+
 export function AppProvider({ children }) {
   const [state, dispatch] = useReducer(reducer, initialState)
+  const { profile } = useAuth()
 
   useEffect(() => {
-    dispatch({
-      type: 'INIT',
-      payload: {
-        customers: loadCustomers(),
-        theme: loadTheme(),
-        business: loadBusiness(),
-      },
-    })
-  }, [])
+    let cancelled = false
+    ;(async () => {
+      const business = await resolveBusiness(profile)
+      if (cancelled) return
+      dispatch({
+        type: 'INIT',
+        payload: {
+          customers: loadCustomers(),
+          theme: loadTheme(),
+          business,
+        },
+      })
+    })()
+    return () => {
+      cancelled = true
+    }
+  }, [profile?.id, profile?.businessName])
 
   useEffect(() => {
     if (state.loaded) saveCustomers(state.customers)
