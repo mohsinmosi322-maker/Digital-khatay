@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { initializeApp, getApp, getApps } from 'firebase/app'
+import { initializeApp, getApps } from 'firebase/app'
 import { getAuth, createUserWithEmailAndPassword, signOut as fbSignOut } from 'firebase/auth'
 import {
   collection,
@@ -31,8 +31,7 @@ const PERMS = [
   { key: 'BACKUP', label: 'Backup/Restore' },
 ]
 
-const defaultUserPerms = () =>
-  Object.fromEntries(PERMS.map((p) => [p.key, true]))
+const defaultUserPerms = () => Object.fromEntries(PERMS.map((p) => [p.key, true]))
 
 function secondaryAuth() {
   const config = {
@@ -83,6 +82,10 @@ export default function AdminPanel() {
     contactWhatsApp: '03099101961',
     resetMessage: '',
     superAdminEmail: profile?.email || '',
+    businessName: '',
+    businessPhone: '',
+    businessAddress: '',
+    businessCurrency: 'PKR',
   })
   const [busy, setBusy] = useState(false)
   const [msg, setMsg] = useState('')
@@ -154,11 +157,7 @@ export default function AdminPanel() {
     setErr('')
     try {
       const sa = secondaryAuth()
-      const cred = await createUserWithEmailAndPassword(
-        sa,
-        createForm.email.trim(),
-        createForm.password
-      )
+      const cred = await createUserWithEmailAndPassword(sa, createForm.email.trim(), createForm.password)
       const uid = cred.user.uid
       await fbSignOut(sa)
       await setDoc(doc(db, 'users', uid), {
@@ -259,10 +258,14 @@ export default function AdminPanel() {
           contactWhatsApp: settings.contactWhatsApp || '',
           resetMessage: settings.resetMessage || '',
           superAdminEmail: settings.superAdminEmail || '',
+          businessName: settings.businessName || '',
+          businessPhone: settings.businessPhone || '',
+          businessAddress: settings.businessAddress || '',
+          businessCurrency: settings.businessCurrency || 'PKR',
         },
         { merge: true }
       )
-      flash('Settings saved')
+      flash('Settings & Business Profile saved')
     } catch (e) {
       flash(e.message, true)
     }
@@ -300,7 +303,9 @@ export default function AdminPanel() {
           flexWrap: 'wrap',
         }}
       >
-        <div style={{ fontWeight: 800, fontSize: 18 }}>DK Admin</div>
+        <div style={{ fontWeight: 800, fontSize: 18 }}>
+          {settings.businessName ? settings.businessName : 'DK Admin'}
+        </div>
         <div style={{ fontSize: 13, opacity: 0.85 }}>{profile?.email}</div>
         <div style={{ marginLeft: 'auto', display: 'flex', gap: 8, flexWrap: 'wrap' }}>
           <button type="button" onClick={loadAll} style={btn('#3B82F6')}>
@@ -377,11 +382,20 @@ export default function AdminPanel() {
                 </div>
               ))}
             </div>
+            {settings.businessName && (
+              <div style={{ ...card, marginBottom: 12 }}>
+                <div style={{ fontSize: 12, color: '#64748b', fontWeight: 700 }}>BUSINESS PROFILE</div>
+                <div style={{ fontSize: 18, fontWeight: 800, marginTop: 4 }}>{settings.businessName}</div>
+                <div style={{ fontSize: 13, color: '#64748b', marginTop: 4 }}>
+                  {[settings.businessPhone, settings.businessAddress].filter(Boolean).join(' · ') || '—'}
+                </div>
+              </div>
+            )}
             <div style={card}>
               <h3 style={{ margin: '0 0 8px' }}>Privacy note</h3>
               <p style={{ margin: 0, fontSize: 13, color: '#64748b', lineHeight: 1.5 }}>
-                Admin Panel controls website users only. User Khata (customers, transactions, balances)
-                is private and not visible here.
+                Admin Panel controls website users only. User Khata (customers, transactions, balances) is private
+                and not visible here.
               </p>
             </div>
           </div>
@@ -434,12 +448,25 @@ export default function AdminPanel() {
                       <td style={{ padding: '10px 8px', whiteSpace: 'nowrap' }}>{fmtTime(u.lastLoginAt)}</td>
                       <td style={{ padding: '10px 8px' }}>
                         <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-                          <button type="button" style={btn('#64748b')} onClick={() => setEditUser({ ...u, permissions: { ...defaultUserPerms(), ...(u.permissions || {}) } })}>
+                          <button
+                            type="button"
+                            style={btn('#64748b')}
+                            onClick={() =>
+                              setEditUser({
+                                ...u,
+                                permissions: { ...defaultUserPerms(), ...(u.permissions || {}) },
+                              })
+                            }
+                          >
                             Edit
                           </button>
                           {u.role !== 'super_admin' && (
                             <>
-                              <button type="button" style={btn(u.status === 'active' ? '#d93b3a' : '#2f6b12')} onClick={() => toggleStatus(u)}>
+                              <button
+                                type="button"
+                                style={btn(u.status === 'active' ? '#d93b3a' : '#2f6b12')}
+                                onClick={() => toggleStatus(u)}
+                              >
                                 {u.status === 'active' ? 'Disable' : 'Enable'}
                               </button>
                               <button type="button" style={btn('#94a3b8')} onClick={() => deleteUserDoc(u)}>
@@ -521,7 +548,9 @@ export default function AdminPanel() {
                 <thead>
                   <tr style={{ background: '#f8fafc', textAlign: 'left' }}>
                     {['Email', 'Status', 'Requested', 'Actions'].map((h) => (
-                      <th key={h} style={{ padding: '10px 8px', color: '#64748b', fontSize: 11 }}>{h}</th>
+                      <th key={h} style={{ padding: '10px 8px', color: '#64748b', fontSize: 11 }}>
+                        {h}
+                      </th>
                     ))}
                   </tr>
                 </thead>
@@ -566,7 +595,9 @@ export default function AdminPanel() {
                 <thead>
                   <tr style={{ background: '#f8fafc', textAlign: 'left' }}>
                     {['Email', 'Status', 'Time'].map((h) => (
-                      <th key={h} style={{ padding: '10px 8px', color: '#64748b', fontSize: 11 }}>{h}</th>
+                      <th key={h} style={{ padding: '10px 8px', color: '#64748b', fontSize: 11 }}>
+                        {h}
+                      </th>
                     ))}
                   </tr>
                 </thead>
@@ -596,7 +627,7 @@ export default function AdminPanel() {
                   {logins.length === 0 && (
                     <tr>
                       <td colSpan={3} style={{ padding: 24, textAlign: 'center', color: '#94a3b8' }}>
-                        No history yet (or index needed — first logins will appear after rules allow)
+                        No history yet
                       </td>
                     </tr>
                   )}
@@ -607,8 +638,50 @@ export default function AdminPanel() {
         )}
 
         {tab === 'settings' && (
-          <div style={{ ...card, maxWidth: 520 }}>
-            <h3 style={{ margin: '0 0 14px' }}>App Settings</h3>
+          <div style={{ ...card, maxWidth: 560 }}>
+            <h3 style={{ margin: '0 0 6px' }}>Business Profile</h3>
+            <p style={{ margin: '0 0 14px', fontSize: 12, color: '#64748b' }}>
+              Platform / admin business details (not individual user Khata profiles).
+            </p>
+            <div style={{ marginBottom: 10 }}>
+              <label style={{ fontSize: 12, fontWeight: 700, color: '#64748b' }}>Business Name</label>
+              <input
+                style={{ ...input, marginTop: 4 }}
+                value={settings.businessName || ''}
+                onChange={(e) => setSettings({ ...settings, businessName: e.target.value })}
+                placeholder="e.g. Digital Khata HQ"
+              />
+            </div>
+            <div style={{ marginBottom: 10 }}>
+              <label style={{ fontSize: 12, fontWeight: 700, color: '#64748b' }}>Business Phone</label>
+              <input
+                style={{ ...input, marginTop: 4 }}
+                value={settings.businessPhone || ''}
+                onChange={(e) => setSettings({ ...settings, businessPhone: e.target.value })}
+                placeholder="03xx-xxxxxxx"
+              />
+            </div>
+            <div style={{ marginBottom: 10 }}>
+              <label style={{ fontSize: 12, fontWeight: 700, color: '#64748b' }}>Business Address</label>
+              <input
+                style={{ ...input, marginTop: 4 }}
+                value={settings.businessAddress || ''}
+                onChange={(e) => setSettings({ ...settings, businessAddress: e.target.value })}
+                placeholder="City, area…"
+              />
+            </div>
+            <div style={{ marginBottom: 18 }}>
+              <label style={{ fontSize: 12, fontWeight: 700, color: '#64748b' }}>Currency</label>
+              <input
+                style={{ ...input, marginTop: 4 }}
+                value={settings.businessCurrency || 'PKR'}
+                onChange={(e) => setSettings({ ...settings, businessCurrency: e.target.value })}
+              />
+            </div>
+
+            <h3 style={{ margin: '0 0 14px', borderTop: '1px solid #e2e8f0', paddingTop: 16 }}>
+              App Settings
+            </h3>
             <div style={{ marginBottom: 10 }}>
               <label style={{ fontSize: 12, fontWeight: 700, color: '#64748b' }}>Contact WhatsApp</label>
               <input
@@ -637,8 +710,8 @@ export default function AdminPanel() {
                 placeholder="Your password reset request has been sent to admin…"
               />
             </div>
-            <button type="button" style={btn()} onClick={saveSettings}>
-              Save Settings
+            <button type="button" style={{ ...btn(), width: '100%', padding: 12 }} onClick={saveSettings}>
+              Save Business Profile & Settings
             </button>
           </div>
         )}
@@ -686,9 +759,7 @@ export default function AdminPanel() {
               <option value="active">active</option>
               <option value="disabled">disabled</option>
             </select>
-            <div style={{ fontSize: 12, fontWeight: 700, color: '#64748b', marginBottom: 8 }}>
-              Permissions
-            </div>
+            <div style={{ fontSize: 12, fontWeight: 700, color: '#64748b', marginBottom: 8 }}>Permissions</div>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 6, marginBottom: 14 }}>
               {PERMS.map((p) => (
                 <label key={p.key} style={{ fontSize: 13, display: 'flex', gap: 8, alignItems: 'center' }}>
