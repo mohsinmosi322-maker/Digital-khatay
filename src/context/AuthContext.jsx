@@ -16,9 +16,27 @@ import { auth, db } from '../firebase'
 
 const AuthContext = createContext(null)
 
+function friendlyError(e) {
+  const code = e?.code || ''
+  const msg = (e?.message || '').toLowerCase()
+  if (code === 'unavailable' || msg.includes('offline') || msg.includes('client is offline')) {
+    return 'Cannot reach database (offline). Check internet, turn off Network Offline in DevTools, and confirm Firestore is created in Firebase Console.'
+  }
+  if (code === 'permission-denied') {
+    return 'Permission denied. Check Firestore rules and users/{UID} document.'
+  }
+  if (code === 'auth/invalid-credential' || code === 'auth/wrong-password' || code === 'auth/user-not-found') {
+    return 'Invalid email or password.'
+  }
+  if (code === 'auth/too-many-requests') {
+    return 'Too many attempts. Try again later.'
+  }
+  return e?.message || 'Login failed. Try again.'
+}
+
 export function AuthProvider({ children }) {
-  const [user, setUser] = useState(null)       // Firebase Auth user
-  const [profile, setProfile] = useState(null) // Firestore users/{uid}
+  const [user, setUser] = useState(null)
+  const [profile, setProfile] = useState(null)
   const [loading, setLoading] = useState(true)
   const [authError, setAuthError] = useState('')
 
@@ -48,15 +66,20 @@ export function AuthProvider({ children }) {
           return
         }
         setProfile({ id: fbUser.uid, ...data })
-        // last login
-        await setDoc(
-          doc(db, 'users', fbUser.uid),
-          { lastLoginAt: serverTimestamp() },
-          { merge: true }
-        )
+        try {
+          await setDoc(
+            doc(db, 'users', fbUser.uid),
+            { lastLoginAt: serverTimestamp() },
+            { merge: true }
+          )
+        } catch (_) {}
       } catch (e) {
         console.error(e)
         setProfile(null)
+        setAuthError(friendlyError(e))
+        try {
+          await signOut(auth)
+        } catch (_) {}
       }
       setLoading(false)
     })
@@ -70,33 +93,16 @@ export function AuthProvider({ children }) {
       const snap = await getDoc(doc(db, 'users', cred.user.uid))
       if (!snap.exists()) {
         await signOut(auth)
-        setAuthError('Account not found. Contact admin.')
-        try {
-          await addDoc(collection(db, 'loginHistory'), {
-            email: email.trim(),
-            userId: cred.user.uid,
-            status: 'failed',
-            reason: 'no_profile',
-            at: serverTimestamp(),
-          })
-        } catch (_) {}
+        setAuthError('Account not found. Create users/{UID} in Firestore (same UID as Authentication).')
         return false
       }
       const data = snap.data()
       if (data.status === 'disabled') {
         await signOut(auth)
         setAuthError('Your account has been disabled. Please contact administrator.')
-        try {
-          await addDoc(collection(db, 'loginHistory'), {
-            email: email.trim(),
-            userId: cred.user.uid,
-            status: 'failed',
-            reason: 'disabled',
-            at: serverTimestamp(),
-          })
-        } catch (_) {}
         return false
       }
+      setProfile({ id: cred.user.uid, ...data })
       try {
         await addDoc(collection(db, 'loginHistory'), {
           email: email.trim(),
@@ -107,15 +113,10 @@ export function AuthProvider({ children }) {
       } catch (_) {}
       return true
     } catch (e) {
-      setAuthError('Invalid email or password.')
+      console.error(e)
+      setAuthError(friendlyError(e))
       try {
-        await addDoc(collection(db, 'loginHistory'), {
-          email: email.trim(),
-          userId: null,
-          status: 'failed',
-          reason: 'invalid_credentials',
-          at: serverTimestamp(),
-        })
+        await signOut(auth)
       } catch (_) {}
       return false
     }

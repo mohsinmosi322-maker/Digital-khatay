@@ -8,7 +8,7 @@ export default function Login() {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [busy, setBusy] = useState(false)
-  const [mode, setMode] = useState('login') // login | forgot
+  const [mode, setMode] = useState('login')
   const [info, setInfo] = useState('')
   const [resetMsg, setResetMsg] = useState(
     'Your password reset request has been sent to admin. For more information contact Admin on WhatsApp: 03099101961'
@@ -26,8 +26,12 @@ export default function Login() {
     e.preventDefault()
     setBusy(true)
     setInfo('')
-    await login(email, password)
-    setBusy(false)
+    setAuthError('')
+    try {
+      await login(email, password)
+    } finally {
+      setBusy(false)
+    }
   }
 
   const handleForgot = async (e) => {
@@ -42,10 +46,16 @@ export default function Login() {
         createdAt: serverTimestamp(),
       })
       setInfo(resetMsg)
-    } catch {
-      setAuthError('Could not submit request. Try again later.')
+    } catch (err) {
+      const msg = (err?.message || '').toLowerCase()
+      if (msg.includes('offline')) {
+        setAuthError('Cannot reach database. Check internet / Firestore setup.')
+      } else {
+        setAuthError('Could not submit request. Try again later.')
+      }
+    } finally {
+      setBusy(false)
     }
-    setBusy(false)
   }
 
   return (
@@ -102,6 +112,7 @@ export default function Login() {
               fontSize: 13,
               marginBottom: 12,
               fontWeight: 600,
+              lineHeight: 1.4,
             }}
           >
             {authError}
