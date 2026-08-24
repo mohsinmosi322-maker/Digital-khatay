@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useReducer, useCallback, useRef } from 'react'
+import { createContext, useContext, useEffect, useReducer, useCallback, useState } from 'react'
 import {
   collection,
   query,
@@ -8,7 +8,6 @@ import {
   setDoc,
   deleteDoc,
   getDoc,
-  serverTimestamp,
 } from 'firebase/firestore'
 import { generateId, getCustomerStats, loadTheme, saveTheme } from '../utils/storage'
 import { db } from '../firebase'
@@ -39,7 +38,7 @@ function reducer(state, action) {
         theme: action.payload.theme || state.theme,
         business: action.payload.business || state.business,
         loaded: true,
-        selectedId: null,
+        selectedId: action.payload.keepSelected ? state.selectedId : null,
       }
     case 'SELECT':
       return { ...state, selectedId: action.payload, view: 'ledger' }
@@ -61,8 +60,6 @@ function reducer(state, action) {
       return { ...state, business: { ...state.business, ...action.payload } }
     case 'TOAST':
       return { ...state, toast: action.payload }
-    case 'SET_CUSTOMERS':
-      return { ...state, customers: action.payload }
     case 'ADD_CUSTOMER_LOCAL': {
       const customer = action.payload
       return {
@@ -219,13 +216,11 @@ export function AppProvider({ children }) {
   const [state, dispatch] = useReducer(reducer, initialState)
   const { profile } = useAuth()
   const uid = profile?.id
-  const saving = useRef(false)
+  const [tick, setTick] = useState(0)
 
-  // Load this user's Khata from Firestore
-  useEffect(() => {
-    if (!uid) return
-    let cancelled = false
-    ;(async () => {
+  const loadCloud = useCallback(
+    async (opts = {}) => {
+      if (!uid) return
       try {
         const business = await resolveBusiness(profile)
         const q = query(collection(db, 'customers'), where('userId', '==', uid))
@@ -235,33 +230,51 @@ export function AppProvider({ children }) {
           ...d.data(),
           transactions: d.data().transactions || [],
         }))
-        if (cancelled) return
         dispatch({
           type: 'INIT',
           payload: {
             customers,
             theme: loadTheme(),
             business,
+            keepSelected: !!opts.keepSelected,
           },
         })
+        if (opts.toast) {
+          dispatch({ type: 'TOAST', payload: { type: 'success', message: 'Data refreshed' } })
+        }
       } catch (e) {
         console.error(e)
-        if (!cancelled) {
-          dispatch({
-            type: 'INIT',
-            payload: { customers: [], theme: loadTheme(), business: await resolveBusiness(profile) },
-          })
-          dispatch({
-            type: 'TOAST',
-            payload: { type: 'danger', message: 'Could not load cloud data. Check connection.' },
-          })
-        }
+        dispatch({
+          type: 'INIT',
+          payload: {
+            customers: state.customers,
+            theme: loadTheme(),
+            business: await resolveBusiness(profile),
+            keepSelected: true,
+          },
+        })
+        dispatch({
+          type: 'TOAST',
+          payload: { type: 'danger', message: 'Could not load cloud data. Check connection.' },
+        })
       }
-    })()
-    return () => {
-      cancelled = true
+    },
+    [uid, profile, state.customers]
+  )
+
+  useEffect(() => {
+    if (!uid) return
+    loadCloud()
+  }, [uid, profile?.businessName, tick])
+
+  // Auto-refresh when user returns to the tab
+  useEffect(() => {
+    const onVis = () => {
+      if (document.visibilityState === 'visible' && uid) setTick((t) => t + 1)
     }
-  }, [uid, profile?.businessName])
+    document.addEventListener('visibilitychange', onVis)
+    return () => document.removeEventListener('visibilitychange', onVis)
+  }, [uid])
 
   useEffect(() => {
     if (state.loaded) {
@@ -294,12 +307,14 @@ export function AppProvider({ children }) {
     [uid]
   )
 
-  // Public actions (same names as before for components)
+  const reload = useCallback(() => {
+    loadCloud({ keepSelected: true, toast: true })
+  }, [loadCloud])
+
   const appDispatch = useCallback(
     async (action) => {
       if (!action || !action.type) return
 
-      // Non-data UI actions
       if (
         ['SELECT', 'SET_SEARCH', 'SET_SORT', 'SET_FILTER', 'SET_THEME', 'SET_VIEW', 'SET_BUSINESS', 'TOAST'].includes(
           action.type
@@ -431,7 +446,6 @@ export function AppProvider({ children }) {
 
         if (action.type === 'RESTORE_ALL') {
           const list = action.payload.customers || []
-          // Replace cloud data for this user
           for (const c of state.customers) {
             await removeCustomerDoc(c.id)
           }
@@ -534,6 +548,7 @@ export function AppProvider({ children }) {
         globalStats,
         dispatch: appDispatch,
         toggleTheme,
+        reload,
       }}
     >
       {children}
