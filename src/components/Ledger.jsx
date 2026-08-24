@@ -19,9 +19,8 @@ export default function Ledger() {
   const [confirmDel, setConfirmDel] = useState(null)
   const [waOpen, setWaOpen] = useState(false)
 
-  // Entry actions
-  const [activeTx, setActiveTx] = useState(null) // menu
-  const [editTx, setEditTx] = useState(null) // edit form open
+  const [activeTx, setActiveTx] = useState(null)
+  const [editTx, setEditTx] = useState(null)
   const [txType, setTxType] = useState('debit')
   const [txAmount, setTxAmount] = useState('')
   const [txDate, setTxDate] = useState('')
@@ -31,6 +30,7 @@ export default function Ledger() {
   if (!selectedCustomer) {
     return (
       <div
+        className="anim-fade"
         style={{
           height: '100%',
           display: 'grid',
@@ -65,20 +65,22 @@ export default function Ledger() {
   }
 
   const stats = getCustomerStats(selectedCustomer)
+  const rawBalance =
+    (selectedCustomer.transactions || []).reduce((s, t) => s + (Number(t.amount) || 0), 0) -
+    (selectedCustomer.transactions || []).reduce((s, t) => s + (Number(t.received) || 0), 0)
+
   const txs = [...(selectedCustomer.transactions || [])].sort((a, b) =>
     (a.date || '').localeCompare(b.date || '')
   )
 
-  // Running balance
   let running = 0
   const rows = txs.map((tx) => {
     const debit = Number(tx.amount) || 0
     const recv = Number(tx.received) || 0
     running += debit - recv
     const isRecovery = recv > 0 && debit === 0
-    const isDebit = debit > 0
     const displayAmount = isRecovery ? recv : debit
-    return { tx, running, isRecovery, isDebit, displayAmount }
+    return { tx, running, isRecovery, displayAmount }
   })
 
   const openAdd = () => {
@@ -93,22 +95,21 @@ export default function Ledger() {
     e.preventDefault()
     const num = Number(amount) || 0
     if (num <= 0) {
-      dispatch({
-        type: 'TOAST',
-        payload: { type: 'danger', message: 'Enter a valid amount' },
-      })
+      dispatch({ type: 'TOAST', payload: { type: 'danger', message: 'Enter a valid amount' } })
       return
-    }
-    const tx = {
-      date,
-      billNo: billNo.trim(),
-      amount: entryType === 'debit' ? num : 0,
-      received: entryType === 'recovery' ? num : 0,
-      receivedDate: entryType === 'recovery' ? date : null,
     }
     dispatch({
       type: 'ADD_TRANSACTION',
-      payload: { customerId: selectedCustomer.id, tx },
+      payload: {
+        customerId: selectedCustomer.id,
+        tx: {
+          date,
+          billNo: billNo.trim(),
+          amount: entryType === 'debit' ? num : 0,
+          received: entryType === 'recovery' ? num : 0,
+          receivedDate: entryType === 'recovery' ? date : null,
+        },
+      },
     })
     setShowAdd(false)
   }
@@ -147,38 +148,41 @@ export default function Ledger() {
     setEditTx(null)
   }
 
-  const doDeleteTx = () => {
-    if (!confirmTxDel) return
-    dispatch({
-      type: 'DELETE_TRANSACTION',
-      payload: { customerId: selectedCustomer.id, txId: confirmTxDel.id },
-    })
-    setConfirmTxDel(null)
-    setActiveTx(null)
+  const tryDeleteCustomer = () => {
+    if (rawBalance !== 0) {
+      dispatch({
+        type: 'TOAST',
+        payload: {
+          type: 'danger',
+          message:
+            rawBalance > 0
+              ? 'Pending balance hai — pehle settle karein'
+              : 'Extra recovery / overpaid balance hai — pehle adjust karein',
+        },
+      })
+      setConfirmDel(null)
+      return
+    }
+    if (confirmDel === selectedCustomer.id) {
+      dispatch({ type: 'DELETE_CUSTOMER', payload: selectedCustomer.id })
+      setConfirmDel(null)
+    } else {
+      setConfirmDel(selectedCustomer.id)
+      setTimeout(() => setConfirmDel(null), 3000)
+    }
   }
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', height: '100%', background: 'var(--card)' }}>
+    <div className="anim-fade" style={{ display: 'flex', flexDirection: 'column', height: '100%', background: 'var(--card)' }}>
       <div style={{ padding: '16px 16px 14px', borderBottom: '1px solid var(--border)' }}>
-        <div
-          style={{
-            display: 'flex',
-            justifyContent: 'space-between',
-            gap: 12,
-            flexWrap: 'wrap',
-            alignItems: 'flex-start',
-          }}
-        >
+        <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
           <div style={{ minWidth: 0, flex: 1 }}>
-            <h2 style={{ margin: 0, fontSize: 20, fontWeight: 800, color: 'var(--text)' }}>
-              {selectedCustomer.name}
-            </h2>
+            <h2 style={{ margin: 0, fontSize: 20, fontWeight: 800 }}>{selectedCustomer.name}</h2>
             <div style={{ marginTop: 6, fontSize: 13, color: 'var(--muted)' }}>
               {selectedCustomer.phone || 'No phone'}
               {selectedCustomer.cnic ? `  ·  CNIC: ${selectedCustomer.cnic}` : ''}
             </div>
           </div>
-
           <div className="no-print" style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
             <button
               className="btn btn-ghost"
@@ -205,16 +209,9 @@ export default function Ledger() {
             </button>
             <button
               className="btn btn-danger-outline"
-              onClick={() => {
-                if (confirmDel === selectedCustomer.id) {
-                  dispatch({ type: 'DELETE_CUSTOMER', payload: selectedCustomer.id })
-                  setConfirmDel(null)
-                } else {
-                  setConfirmDel(selectedCustomer.id)
-                  setTimeout(() => setConfirmDel(null), 3000)
-                }
-              }}
+              onClick={tryDeleteCustomer}
               style={confirmDel === selectedCustomer.id ? { background: 'var(--danger)', color: '#fff' } : {}}
+              title={rawBalance !== 0 ? 'Balance zero hone ke baad delete hoga' : ''}
             >
               {confirmDel === selectedCustomer.id ? 'Confirm?' : 'Delete'}
             </button>
@@ -241,10 +238,31 @@ export default function Ledger() {
               {formatCurrency(stats.totalReceived)}
             </div>
           </div>
-          <div style={{ background: 'rgba(217,59,58,0.08)', padding: 12, borderRadius: 12 }}>
-            <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--danger)' }}>PENDING</div>
-            <div style={{ fontSize: 18, fontWeight: 800, color: 'var(--danger)', marginTop: 2 }}>
-              {formatCurrency(stats.pending)}
+          <div
+            style={{
+              background: rawBalance < 0 ? 'rgba(47,107,18,0.08)' : 'rgba(217,59,58,0.08)',
+              padding: 12,
+              borderRadius: 12,
+            }}
+          >
+            <div
+              style={{
+                fontSize: 11,
+                fontWeight: 700,
+                color: rawBalance < 0 ? 'var(--success)' : 'var(--danger)',
+              }}
+            >
+              {rawBalance < 0 ? 'OVERPAID / EXTRA' : 'PENDING'}
+            </div>
+            <div
+              style={{
+                fontSize: 18,
+                fontWeight: 800,
+                color: rawBalance < 0 ? 'var(--success)' : 'var(--danger)',
+                marginTop: 2,
+              }}
+            >
+              {formatCurrency(Math.abs(rawBalance))}
             </div>
           </div>
         </div>
@@ -258,7 +276,6 @@ export default function Ledger() {
           display: 'flex',
           justifyContent: 'space-between',
           alignItems: 'center',
-          gap: 8,
         }}
       >
         <strong style={{ fontSize: 14 }}>Date-wise Ledger</strong>
@@ -274,15 +291,15 @@ export default function Ledger() {
           </div>
         ) : (
           <div style={{ overflowX: 'auto' }}>
-            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 14, minWidth: 320 }}>
+            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 14, minWidth: 400 }}>
               <thead>
                 <tr style={{ background: 'var(--bg)', borderBottom: '1px solid var(--border)' }}>
-                  {['Date', 'Amount', 'Balance'].map((h) => (
+                  {['Date', 'Bill No', 'Amount', 'Balance'].map((h) => (
                     <th
                       key={h}
                       style={{
-                        padding: '12px 16px',
-                        textAlign: h === 'Date' ? 'left' : 'right',
+                        padding: '12px 14px',
+                        textAlign: h === 'Date' || h === 'Bill No' ? 'left' : 'right',
                         fontSize: 11,
                         color: 'var(--muted)',
                         fontWeight: 700,
@@ -298,21 +315,13 @@ export default function Ledger() {
                   <tr
                     key={tx.id}
                     onClick={() => setActiveTx(tx)}
-                    style={{
-                      borderBottom: '1px solid var(--border)',
-                      cursor: 'pointer',
-                    }}
-                    onMouseEnter={(e) => {
-                      e.currentTarget.style.background = 'rgba(24,95,165,0.04)'
-                    }}
-                    onMouseLeave={(e) => {
-                      e.currentTarget.style.background = 'transparent'
-                    }}
+                    style={{ borderBottom: '1px solid var(--border)', cursor: 'pointer' }}
                   >
-                    <td style={{ padding: '12px 16px', whiteSpace: 'nowrap' }}>{formatDate(tx.date)}</td>
+                    <td style={{ padding: '12px 14px', whiteSpace: 'nowrap' }}>{formatDate(tx.date)}</td>
+                    <td style={{ padding: '12px 14px', color: 'var(--muted)' }}>{tx.billNo || '—'}</td>
                     <td
                       style={{
-                        padding: '12px 16px',
+                        padding: '12px 14px',
                         textAlign: 'right',
                         fontWeight: 800,
                         color: isRecovery ? 'var(--success)' : 'var(--danger)',
@@ -322,29 +331,33 @@ export default function Ledger() {
                     </td>
                     <td
                       style={{
-                        padding: '12px 16px',
+                        padding: '12px 14px',
                         textAlign: 'right',
                         fontWeight: 800,
-                        color: running > 0 ? 'var(--danger)' : 'var(--success)',
+                        color: running > 0 ? 'var(--danger)' : running < 0 ? 'var(--success)' : 'var(--muted)',
                       }}
                     >
-                      {formatCurrency(running)}
+                      {running < 0 ? `+${formatCurrency(Math.abs(running))}` : formatCurrency(running)}
                     </td>
                   </tr>
                 ))}
               </tbody>
               <tfoot>
                 <tr style={{ background: 'var(--bg)', fontWeight: 800, borderTop: '2px solid var(--border)' }}>
-                  <td style={{ padding: '12px 16px' }}>Balance</td>
-                  <td style={{ padding: '12px 16px', textAlign: 'right', color: 'var(--muted)' }}>—</td>
+                  <td style={{ padding: '12px 14px' }} colSpan={2}>
+                    Closing
+                  </td>
+                  <td style={{ padding: '12px 14px', textAlign: 'right', color: 'var(--muted)' }}>—</td>
                   <td
                     style={{
-                      padding: '12px 16px',
+                      padding: '12px 14px',
                       textAlign: 'right',
-                      color: stats.pending > 0 ? 'var(--danger)' : 'var(--success)',
+                      color: rawBalance > 0 ? 'var(--danger)' : rawBalance < 0 ? 'var(--success)' : 'var(--muted)',
                     }}
                   >
-                    {formatCurrency(stats.pending)}
+                    {rawBalance < 0
+                      ? `+${formatCurrency(Math.abs(rawBalance))} extra`
+                      : formatCurrency(rawBalance)}
                   </td>
                 </tr>
               </tfoot>
@@ -353,32 +366,13 @@ export default function Ledger() {
         )}
       </div>
 
-      {/* ENTRY OPTIONS POPUP */}
       {activeTx && !editTx && !confirmTxDel && (
-        <div
-          className="no-print"
-          style={{
-            position: 'fixed',
-            inset: 0,
-            background: 'rgba(15,23,42,0.45)',
-            display: 'grid',
-            placeItems: 'center',
-            zIndex: 200,
-            padding: 16,
-          }}
-          onClick={() => setActiveTx(null)}
-        >
-          <div
-            className="card"
-            style={{ width: 'min(340px, 100%)', padding: 20 }}
-            onClick={(e) => e.stopPropagation()}
-          >
+        <div className="modal-backdrop no-print" onClick={() => setActiveTx(null)}>
+          <div className="card modal-card" style={{ width: 'min(340px, 100%)', padding: 20 }} onClick={(e) => e.stopPropagation()}>
             <h3 style={{ margin: '0 0 6px', fontWeight: 800, fontSize: 16 }}>Entry options</h3>
             <p style={{ margin: '0 0 14px', fontSize: 13, color: 'var(--muted)' }}>
-              {formatDate(activeTx.date)} ·{' '}
-              {(Number(activeTx.received) || 0) > 0 && !(Number(activeTx.amount) > 0)
-                ? `Recovery ${formatCurrency(activeTx.received)}`
-                : `Debit ${formatCurrency(activeTx.amount)}`}
+              {formatDate(activeTx.date)}
+              {activeTx.billNo ? ` · Bill ${activeTx.billNo}` : ''}
             </p>
             <div style={{ display: 'grid', gap: 10 }}>
               <button
@@ -391,7 +385,6 @@ export default function Ledger() {
                   background: '#2f6b12',
                   color: '#fff',
                   fontWeight: 800,
-                  fontSize: 15,
                   cursor: 'pointer',
                 }}
               >
@@ -410,7 +403,6 @@ export default function Ledger() {
                   background: '#d93b3a',
                   color: '#fff',
                   fontWeight: 800,
-                  fontSize: 15,
                   cursor: 'pointer',
                 }}
               >
@@ -424,29 +416,23 @@ export default function Ledger() {
         </div>
       )}
 
-      {/* CONFIRM DELETE ENTRY */}
       {confirmTxDel && (
-        <div
-          className="no-print"
-          style={{
-            position: 'fixed',
-            inset: 0,
-            background: 'rgba(15,23,42,0.5)',
-            display: 'grid',
-            placeItems: 'center',
-            zIndex: 210,
-            padding: 16,
-          }}
-        >
-          <div className="card" style={{ width: 'min(360px, 100%)', padding: 22 }}>
+        <div className="modal-backdrop no-print">
+          <div className="card modal-card" style={{ width: 'min(360px, 100%)', padding: 22 }}>
             <h3 style={{ margin: '0 0 8px', fontWeight: 800 }}>Delete entry?</h3>
-            <p style={{ margin: '0 0 16px', fontSize: 14, color: 'var(--muted)', lineHeight: 1.45 }}>
-              Are you sure you want to delete this entry? This cannot be undone.
+            <p style={{ margin: '0 0 16px', fontSize: 14, color: 'var(--muted)' }}>
+              Are you sure you want to delete this entry?
             </p>
             <div style={{ display: 'flex', gap: 10 }}>
               <button
                 type="button"
-                onClick={doDeleteTx}
+                onClick={() => {
+                  dispatch({
+                    type: 'DELETE_TRANSACTION',
+                    payload: { customerId: selectedCustomer.id, txId: confirmTxDel.id },
+                  })
+                  setConfirmTxDel(null)
+                }}
                 style={{
                   flex: 1,
                   padding: 12,
@@ -468,30 +454,16 @@ export default function Ledger() {
         </div>
       )}
 
-      {/* EDIT ENTRY */}
       {editTx && (
-        <div
-          className="no-print"
-          style={{
-            position: 'fixed',
-            inset: 0,
-            background: 'rgba(15,23,42,0.5)',
-            display: 'grid',
-            placeItems: 'center',
-            zIndex: 210,
-            padding: 16,
-          }}
-        >
+        <div className="modal-backdrop no-print">
           <form
             onSubmit={saveEditTx}
-            className="card"
-            style={{ width: 'min(400px, 100%)', padding: 22, boxShadow: '0 24px 60px rgba(0,0,0,0.2)' }}
+            className="card modal-card"
+            style={{ width: 'min(400px, 100%)', padding: 22 }}
           >
-            <h3 style={{ margin: '0 0 16px', fontWeight: 800, fontSize: 18 }}>Edit Entry</h3>
+            <h3 style={{ margin: '0 0 16px', fontWeight: 800 }}>Edit Entry</h3>
             <div style={{ marginBottom: 14 }}>
-              <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--muted)', marginBottom: 8 }}>
-                Type
-              </div>
+              <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--muted)', marginBottom: 8 }}>Type</div>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
                 <button
                   type="button"
@@ -543,24 +515,11 @@ export default function Ledger() {
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 18 }}>
               <div>
                 <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--muted)', marginBottom: 6 }}>Date</div>
-                <input
-                  className="input"
-                  type="date"
-                  required
-                  value={txDate}
-                  onChange={(e) => setTxDate(e.target.value)}
-                />
+                <input className="input" type="date" required value={txDate} onChange={(e) => setTxDate(e.target.value)} />
               </div>
               <div>
-                <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--muted)', marginBottom: 6 }}>
-                  Bill No
-                </div>
-                <input
-                  className="input"
-                  value={txBill}
-                  onChange={(e) => setTxBill(e.target.value)}
-                  placeholder="Optional"
-                />
+                <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--muted)', marginBottom: 6 }}>Bill No</div>
+                <input className="input" value={txBill} onChange={(e) => setTxBill(e.target.value)} placeholder="Optional" />
               </div>
             </div>
             <div style={{ display: 'flex', gap: 10 }}>
@@ -575,30 +534,16 @@ export default function Ledger() {
         </div>
       )}
 
-      {/* ADD ENTRY */}
       {showAdd && (
-        <div
-          className="no-print"
-          style={{
-            position: 'fixed',
-            inset: 0,
-            background: 'rgba(15,23,42,0.5)',
-            display: 'grid',
-            placeItems: 'center',
-            zIndex: 200,
-            padding: 16,
-          }}
-        >
+        <div className="modal-backdrop no-print">
           <form
             onSubmit={handleSave}
-            className="card"
-            style={{ width: 'min(400px, 100%)', padding: 22, boxShadow: '0 24px 60px rgba(0,0,0,0.2)' }}
+            className="card modal-card"
+            style={{ width: 'min(400px, 100%)', padding: 22 }}
           >
-            <h3 style={{ margin: '0 0 16px', fontWeight: 800, fontSize: 18 }}>Add Entry</h3>
+            <h3 style={{ margin: '0 0 16px', fontWeight: 800 }}>Add Entry</h3>
             <div style={{ marginBottom: 14 }}>
-              <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--muted)', marginBottom: 8 }}>
-                1. Select Type
-              </div>
+              <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--muted)', marginBottom: 8 }}>1. Select Type</div>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
                 <button
                   type="button"
@@ -651,24 +596,11 @@ export default function Ledger() {
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 18 }}>
               <div>
                 <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--muted)', marginBottom: 6 }}>3. Date</div>
-                <input
-                  className="input"
-                  type="date"
-                  required
-                  value={date}
-                  onChange={(e) => setDate(e.target.value)}
-                />
+                <input className="input" type="date" required value={date} onChange={(e) => setDate(e.target.value)} />
               </div>
               <div>
-                <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--muted)', marginBottom: 6 }}>
-                  Bill No (optional)
-                </div>
-                <input
-                  className="input"
-                  value={billNo}
-                  onChange={(e) => setBillNo(e.target.value)}
-                  placeholder="Optional"
-                />
+                <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--muted)', marginBottom: 6 }}>Bill No</div>
+                <input className="input" value={billNo} onChange={(e) => setBillNo(e.target.value)} placeholder="Optional" />
               </div>
             </div>
             <div style={{ display: 'flex', gap: 10 }}>
@@ -684,24 +616,10 @@ export default function Ledger() {
       )}
 
       {waOpen && (
-        <div
-          className="no-print"
-          style={{
-            position: 'fixed',
-            inset: 0,
-            background: 'rgba(15,23,42,0.5)',
-            display: 'grid',
-            placeItems: 'center',
-            zIndex: 200,
-            padding: 16,
-          }}
-        >
-          <div className="card" style={{ width: 'min(380px, 100%)', padding: 22 }}>
+        <div className="modal-backdrop no-print">
+          <div className="card modal-card" style={{ width: 'min(380px, 100%)', padding: 22 }}>
             <h3 style={{ margin: '0 0 8px', fontWeight: 800 }}>Send on WhatsApp</h3>
-            <p style={{ margin: '0 0 16px', fontSize: 13, color: 'var(--muted)' }}>
-              Message ya PDF statement choose karein
-            </p>
-            <div style={{ display: 'grid', gap: 10 }}>
+            <div style={{ display: 'grid', gap: 10, marginTop: 12 }}>
               <button
                 className="btn btn-success"
                 style={{ padding: 14 }}
@@ -731,45 +649,14 @@ export default function Ledger() {
       )}
 
       {editOpen && (
-        <div
-          className="no-print"
-          style={{
-            position: 'fixed',
-            inset: 0,
-            background: 'rgba(15,23,42,0.45)',
-            display: 'grid',
-            placeItems: 'center',
-            zIndex: 100,
-            padding: 16,
-          }}
-        >
-          <div className="card" style={{ width: 'min(420px, 100%)', padding: 18 }}>
+        <div className="modal-backdrop no-print">
+          <div className="card modal-card" style={{ width: 'min(420px, 100%)', padding: 18 }}>
             <h3 style={{ margin: '0 0 12px', fontWeight: 800 }}>Edit Customer</h3>
             <div style={{ display: 'grid', gap: 8 }}>
-              <input
-                className="input"
-                placeholder="Name"
-                value={editForm.name}
-                onChange={(e) => setEditForm({ ...editForm, name: e.target.value })}
-              />
-              <input
-                className="input"
-                placeholder="Phone"
-                value={editForm.phone}
-                onChange={(e) => setEditForm({ ...editForm, phone: e.target.value })}
-              />
-              <input
-                className="input"
-                placeholder="CNIC"
-                value={editForm.cnic}
-                onChange={(e) => setEditForm({ ...editForm, cnic: e.target.value })}
-              />
-              <input
-                className="input"
-                placeholder="Address"
-                value={editForm.address}
-                onChange={(e) => setEditForm({ ...editForm, address: e.target.value })}
-              />
+              <input className="input" placeholder="Name" value={editForm.name} onChange={(e) => setEditForm({ ...editForm, name: e.target.value })} />
+              <input className="input" placeholder="Phone" value={editForm.phone} onChange={(e) => setEditForm({ ...editForm, phone: e.target.value })} />
+              <input className="input" placeholder="CNIC" value={editForm.cnic} onChange={(e) => setEditForm({ ...editForm, cnic: e.target.value })} />
+              <input className="input" placeholder="Address" value={editForm.address} onChange={(e) => setEditForm({ ...editForm, address: e.target.value })} />
             </div>
             <div style={{ display: 'flex', gap: 8, marginTop: 14 }}>
               <button
@@ -779,10 +666,7 @@ export default function Ledger() {
                   if (!editForm.name.trim()) return
                   dispatch({
                     type: 'UPDATE_CUSTOMER',
-                    payload: {
-                      id: selectedCustomer.id,
-                      updates: { ...editForm, name: editForm.name.trim() },
-                    },
+                    payload: { id: selectedCustomer.id, updates: { ...editForm, name: editForm.name.trim() } },
                   })
                   setEditOpen(false)
                 }}

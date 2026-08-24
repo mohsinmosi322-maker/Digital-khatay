@@ -18,9 +18,9 @@ export default function Sidebar({ mobileOpen, setMobileOpen }) {
     reload,
   } = useApp()
   const { logout, profile } = useAuth()
-
   const [showAdd, setShowAdd] = useState(false)
   const [form, setForm] = useState({ name: '', phone: '', cnic: '', address: '' })
+  const [logoutAsk, setLogoutAsk] = useState(false)
 
   const handleAdd = (e) => {
     e.preventDefault()
@@ -158,6 +158,7 @@ export default function Sidebar({ mobileOpen, setMobileOpen }) {
                   textAlign: 'left',
                   background: active ? 'rgba(24,95,165,0.08)' : 'transparent',
                   borderLeft: active ? '3px solid var(--primary)' : '3px solid transparent',
+                  transition: 'background 0.15s ease',
                 }}
               >
                 <div
@@ -211,7 +212,7 @@ export default function Sidebar({ mobileOpen, setMobileOpen }) {
 
       <div style={{ padding: 12, borderTop: '1px solid var(--border)' }}>
         {showAdd ? (
-          <form onSubmit={handleAdd} style={{ display: 'grid', gap: 8 }}>
+          <form onSubmit={handleAdd} style={{ display: 'grid', gap: 8 }} className="anim-slide">
             <input
               className="input"
               required
@@ -255,22 +256,42 @@ export default function Sidebar({ mobileOpen, setMobileOpen }) {
           {theme === 'dark' ? '☀ Light mode' : '🌙 Dark mode'}
         </button>
         {typeof reload === 'function' && (
-          <button
-            className="btn btn-ghost"
-            style={{ width: '100%', marginTop: 8 }}
-            onClick={() => reload()}
-          >
+          <button className="btn btn-ghost" style={{ width: '100%', marginTop: 8 }} onClick={() => reload()}>
             ↻ Refresh data
           </button>
         )}
         <button
           className="btn btn-ghost"
           style={{ width: '100%', marginTop: 8, color: 'var(--danger)' }}
-          onClick={() => logout()}
+          onClick={() => setLogoutAsk(true)}
         >
           Logout
         </button>
       </div>
+
+      {logoutAsk && (
+        <div className="modal-backdrop" style={{ zIndex: 300 }}>
+          <div className="card modal-card" style={{ width: 'min(340px, 100%)', padding: 22 }}>
+            <h3 style={{ margin: '0 0 8px', fontWeight: 800 }}>Logout?</h3>
+            <p style={{ margin: '0 0 16px', fontSize: 14, color: 'var(--muted)' }}>
+              Kya aap logout karna chahte hain?
+            </p>
+            <div style={{ display: 'flex', gap: 10 }}>
+              <button
+                type="button"
+                className="btn btn-primary"
+                style={{ flex: 1, background: '#d93b3a', borderColor: '#d93b3a' }}
+                onClick={() => logout()}
+              >
+                Yes, Logout
+              </button>
+              <button type="button" className="btn btn-ghost" onClick={() => setLogoutAsk(false)}>
+                No
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </aside>
   )
 }
