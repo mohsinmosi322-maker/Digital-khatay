@@ -5,6 +5,7 @@ import Sidebar from './components/Sidebar'
 import Ledger from './components/Ledger'
 import Dashboard from './components/Dashboard'
 import Login from './components/Login'
+import AdminPanel from './components/AdminPanel'
 
 function AnimatedFeedback() {
   const { toast } = useApp()
@@ -71,56 +72,13 @@ function AnimatedFeedback() {
 
 function KhataShell() {
   const { view, loaded, business } = useApp()
-  const { profile, logout, isAdmin } = useAuth()
+  const { profile, logout } = useAuth()
   const [mobileOpen, setMobileOpen] = useState(false)
 
   if (!loaded) {
     return (
       <div style={{ height: '100vh', display: 'grid', placeItems: 'center', background: 'var(--bg)' }}>
         <div style={{ fontWeight: 700, color: '#185FA5' }}>Loading Khata…</div>
-      </div>
-    )
-  }
-
-  if (isAdmin) {
-    return (
-      <div style={{ minHeight: '100vh', background: '#f1f5f9', padding: 24 }}>
-        <div
-          style={{
-            maxWidth: 720,
-            margin: '0 auto',
-            background: '#fff',
-            borderRadius: 16,
-            padding: 24,
-            boxShadow: '0 4px 20px rgba(0,0,0,0.06)',
-          }}
-        >
-          <h1 style={{ margin: '0 0 8px' }}>Admin Panel</h1>
-          <p style={{ color: '#64748b', margin: '0 0 8px' }}>
-            Logged in as <strong>{profile?.email}</strong>
-          </p>
-          <p style={{ fontSize: 13, color: '#94a3b8' }}>
-            Admin manages users only — user Khata data is private.
-          </p>
-          <p style={{ fontSize: 13, color: '#64748b', marginTop: 12 }}>
-            Full user management, permissions, login history coming next.
-          </p>
-          <button
-            onClick={logout}
-            style={{
-              marginTop: 16,
-              padding: '10px 16px',
-              background: '#185FA5',
-              color: '#fff',
-              border: 'none',
-              borderRadius: 8,
-              cursor: 'pointer',
-              fontWeight: 600,
-            }}
-          >
-            Logout
-          </button>
-        </div>
       </div>
     )
   }
@@ -153,7 +111,7 @@ function KhataShell() {
 }
 
 function Root() {
-  const { user, profile, loading } = useAuth()
+  const { user, profile, loading, isAdmin } = useAuth()
 
   if (loading) {
     return (
@@ -164,6 +122,8 @@ function Root() {
   }
 
   if (!user || !profile) return <Login />
+
+  if (isAdmin) return <AdminPanel />
 
   return (
     <AppProvider>
