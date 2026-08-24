@@ -1,15 +1,16 @@
-import { createContext, useContext, useEffect, useReducer, useCallback } from 'react'
-import { doc, getDoc } from 'firebase/firestore'
+import { createContext, useContext, useEffect, useReducer, useCallback, useRef } from 'react'
 import {
-  loadCustomers,
-  saveCustomers,
-  loadTheme,
-  saveTheme,
-  loadBusiness,
-  saveBusiness,
-  generateId,
-  getCustomerStats,
-} from '../utils/storage'
+  collection,
+  query,
+  where,
+  getDocs,
+  doc,
+  setDoc,
+  deleteDoc,
+  getDoc,
+  serverTimestamp,
+} from 'firebase/firestore'
+import { generateId, getCustomerStats, loadTheme, saveTheme } from '../utils/storage'
 import { db } from '../firebase'
 import { useAuth } from './AuthContext'
 
@@ -34,10 +35,11 @@ function reducer(state, action) {
     case 'INIT':
       return {
         ...state,
-        customers: action.payload.customers,
-        theme: action.payload.theme,
-        business: action.payload.business,
+        customers: action.payload.customers || [],
+        theme: action.payload.theme || state.theme,
+        business: action.payload.business || state.business,
         loaded: true,
+        selectedId: null,
       }
     case 'SELECT':
       return { ...state, selectedId: action.payload, view: 'ledger' }
@@ -59,18 +61,10 @@ function reducer(state, action) {
       return { ...state, business: { ...state.business, ...action.payload } }
     case 'TOAST':
       return { ...state, toast: action.payload }
-    case 'ADD_CUSTOMER': {
-      const customer = {
-        id: generateId(),
-        name: action.payload.name.trim(),
-        phone: (action.payload.phone || '').trim(),
-        cnic: (action.payload.cnic || '').trim(),
-        address: (action.payload.address || '').trim(),
-        notes: '',
-        transactions: [],
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-      }
+    case 'SET_CUSTOMERS':
+      return { ...state, customers: action.payload }
+    case 'ADD_CUSTOMER_LOCAL': {
+      const customer = action.payload
       return {
         ...state,
         customers: [...state.customers, customer],
@@ -78,18 +72,18 @@ function reducer(state, action) {
         toast: { type: 'success', message: 'Customer Added Successfully' },
       }
     }
-    case 'UPDATE_CUSTOMER': {
+    case 'UPDATE_CUSTOMER_LOCAL': {
       return {
         ...state,
         customers: state.customers.map((c) =>
-          c.id === action.payload.id
-            ? { ...c, ...action.payload.updates, updatedAt: new Date().toISOString() }
-            : c
+          c.id === action.payload.id ? { ...c, ...action.payload.updates } : c
         ),
-        toast: { type: 'success', message: 'Customer Updated Successfully' },
+        toast: action.payload.silent
+          ? state.toast
+          : { type: 'success', message: action.payload.message || 'Customer Updated Successfully' },
       }
     }
-    case 'DELETE_CUSTOMER': {
+    case 'DELETE_CUSTOMER_LOCAL': {
       const next = state.customers.filter((c) => c.id !== action.payload)
       return {
         ...state,
@@ -98,36 +92,33 @@ function reducer(state, action) {
         toast: { type: 'danger', message: 'Customer Deleted' },
       }
     }
-    case 'ADD_TRANSACTION': {
+    case 'ADD_TRANSACTION_LOCAL': {
       const amount = Number(action.payload.tx.amount) || 0
       const received = Number(action.payload.tx.received) || 0
       let toast = { type: 'success', message: 'Transaction Successful' }
-      if (received > 0 && amount === 0) {
-        toast = { type: 'success', message: 'Recovery Successful' }
-      } else if (amount > 0 && received === 0) {
-        toast = { type: 'danger', message: 'Debit Entry Saved' }
-      }
+      if (received > 0 && amount === 0) toast = { type: 'success', message: 'Recovery Successful' }
+      else if (amount > 0 && received === 0) toast = { type: 'danger', message: 'Debit Entry Saved' }
       return {
         ...state,
         customers: state.customers.map((c) => {
           if (c.id !== action.payload.customerId) return c
           return {
             ...c,
-            transactions: [...c.transactions, { id: generateId(), ...action.payload.tx }],
+            transactions: [...(c.transactions || []), action.payload.tx],
             updatedAt: new Date().toISOString(),
           }
         }),
         toast,
       }
     }
-    case 'UPDATE_TRANSACTION': {
+    case 'UPDATE_TRANSACTION_LOCAL': {
       return {
         ...state,
         customers: state.customers.map((c) => {
           if (c.id !== action.payload.customerId) return c
           return {
             ...c,
-            transactions: c.transactions.map((t) =>
+            transactions: (c.transactions || []).map((t) =>
               t.id === action.payload.txId ? { ...t, ...action.payload.updates } : t
             ),
             updatedAt: new Date().toISOString(),
@@ -136,52 +127,35 @@ function reducer(state, action) {
         toast: { type: 'success', message: 'Entry Updated' },
       }
     }
-    case 'DELETE_TRANSACTION': {
+    case 'DELETE_TRANSACTION_LOCAL': {
       return {
         ...state,
         customers: state.customers.map((c) => {
           if (c.id !== action.payload.customerId) return c
           return {
             ...c,
-            transactions: c.transactions.filter((t) => t.id !== action.payload.txId),
+            transactions: (c.transactions || []).filter((t) => t.id !== action.payload.txId),
             updatedAt: new Date().toISOString(),
           }
         }),
         toast: { type: 'danger', message: 'Entry Deleted' },
       }
     }
-    case 'IMPORT_CUSTOMERS': {
-      const existing = new Map(state.customers.map((c) => [c.name.toLowerCase(), c]))
-      for (const inc of action.payload) {
-        const key = inc.name.toLowerCase()
-        if (existing.has(key)) {
-          const cur = existing.get(key)
-          existing.set(key, {
-            ...cur,
-            phone: cur.phone || inc.phone || '',
-            cnic: cur.cnic || inc.cnic || '',
-            address: cur.address || inc.address || '',
-            transactions: [...cur.transactions, ...inc.transactions],
-            updatedAt: new Date().toISOString(),
-          })
-        } else {
-          existing.set(key, inc)
-        }
-      }
+    case 'IMPORT_CUSTOMERS_LOCAL': {
       return {
         ...state,
-        customers: Array.from(existing.values()),
+        customers: action.payload,
         toast: { type: 'success', message: 'Import Complete' },
       }
     }
-    case 'RESTORE_ALL':
+    case 'RESTORE_ALL_LOCAL':
       return {
         ...state,
         customers: action.payload.customers || [],
         business: action.payload.business || state.business,
         toast: { type: 'success', message: 'Backup Restored Successfully' },
       }
-    case 'CLEAR_ALL':
+    case 'CLEAR_ALL_LOCAL':
       return {
         ...state,
         customers: [],
@@ -193,15 +167,22 @@ function reducer(state, action) {
   }
 }
 
-async function resolveBusiness(profile) {
-  // 1) Admin platform business (settings/app)
-  let business = {
-    name: 'My Business',
-    phone: '',
-    address: '',
-    currency: 'PKR',
+function toFirestoreCustomer(c, userId) {
+  return {
+    userId,
+    name: c.name || '',
+    phone: c.phone || '',
+    cnic: c.cnic || '',
+    address: c.address || '',
+    notes: c.notes || '',
+    transactions: Array.isArray(c.transactions) ? c.transactions : [],
+    createdAt: c.createdAt || new Date().toISOString(),
+    updatedAt: c.updatedAt || new Date().toISOString(),
   }
+}
 
+async function resolveBusiness(profile) {
+  let business = { name: 'My Business', phone: '', address: '', currency: 'PKR' }
   try {
     const sSnap = await getDoc(doc(db, 'settings', 'app'))
     if (sSnap.exists()) {
@@ -215,16 +196,8 @@ async function resolveBusiness(profile) {
         }
       }
     }
-  } catch (e) {
-    console.warn('settings/app', e)
-  }
-
-  // 2) Per-user businessName from profile (set when admin creates/edits user)
-  if (profile?.businessName) {
-    business = { ...business, name: profile.businessName }
-  }
-
-  // 3) Optional per-user business/{uid} doc
+  } catch (_) {}
+  if (profile?.businessName) business = { ...business, name: profile.businessName }
   if (profile?.id) {
     try {
       const bSnap = await getDoc(doc(db, 'business', profile.id))
@@ -237,46 +210,58 @@ async function resolveBusiness(profile) {
           currency: b.currency || business.currency,
         }
       }
-    } catch (e) {
-      console.warn('business/uid', e)
-    }
+    } catch (_) {}
   }
-
-  // 4) Local cache only if still default empty name somehow
-  if (!business.name) {
-    const local = loadBusiness()
-    if (local?.name) business = { ...business, ...local }
-  }
-
   return business
 }
 
 export function AppProvider({ children }) {
   const [state, dispatch] = useReducer(reducer, initialState)
   const { profile } = useAuth()
+  const uid = profile?.id
+  const saving = useRef(false)
 
+  // Load this user's Khata from Firestore
   useEffect(() => {
+    if (!uid) return
     let cancelled = false
     ;(async () => {
-      const business = await resolveBusiness(profile)
-      if (cancelled) return
-      dispatch({
-        type: 'INIT',
-        payload: {
-          customers: loadCustomers(),
-          theme: loadTheme(),
-          business,
-        },
-      })
+      try {
+        const business = await resolveBusiness(profile)
+        const q = query(collection(db, 'customers'), where('userId', '==', uid))
+        const snap = await getDocs(q)
+        const customers = snap.docs.map((d) => ({
+          id: d.id,
+          ...d.data(),
+          transactions: d.data().transactions || [],
+        }))
+        if (cancelled) return
+        dispatch({
+          type: 'INIT',
+          payload: {
+            customers,
+            theme: loadTheme(),
+            business,
+          },
+        })
+      } catch (e) {
+        console.error(e)
+        if (!cancelled) {
+          dispatch({
+            type: 'INIT',
+            payload: { customers: [], theme: loadTheme(), business: await resolveBusiness(profile) },
+          })
+          dispatch({
+            type: 'TOAST',
+            payload: { type: 'danger', message: 'Could not load cloud data. Check connection.' },
+          })
+        }
+      }
     })()
     return () => {
       cancelled = true
     }
-  }, [profile?.id, profile?.businessName])
-
-  useEffect(() => {
-    if (state.loaded) saveCustomers(state.customers)
-  }, [state.customers, state.loaded])
+  }, [uid, profile?.businessName])
 
   useEffect(() => {
     if (state.loaded) {
@@ -286,14 +271,213 @@ export function AppProvider({ children }) {
   }, [state.theme, state.loaded])
 
   useEffect(() => {
-    if (state.loaded) saveBusiness(state.business)
-  }, [state.business, state.loaded])
-
-  useEffect(() => {
     if (!state.toast) return
     const t = setTimeout(() => dispatch({ type: 'TOAST', payload: null }), 2200)
     return () => clearTimeout(t)
   }, [state.toast])
+
+  const persistCustomer = useCallback(
+    async (customer) => {
+      if (!uid || !customer?.id) return
+      await setDoc(doc(db, 'customers', customer.id), toFirestoreCustomer(customer, uid), {
+        merge: true,
+      })
+    },
+    [uid]
+  )
+
+  const removeCustomerDoc = useCallback(
+    async (id) => {
+      if (!uid || !id) return
+      await deleteDoc(doc(db, 'customers', id))
+    },
+    [uid]
+  )
+
+  // Public actions (same names as before for components)
+  const appDispatch = useCallback(
+    async (action) => {
+      if (!action || !action.type) return
+
+      // Non-data UI actions
+      if (
+        ['SELECT', 'SET_SEARCH', 'SET_SORT', 'SET_FILTER', 'SET_THEME', 'SET_VIEW', 'SET_BUSINESS', 'TOAST'].includes(
+          action.type
+        )
+      ) {
+        dispatch(action)
+        return
+      }
+
+      if (!uid) {
+        dispatch({ type: 'TOAST', payload: { type: 'danger', message: 'Not logged in' } })
+        return
+      }
+
+      try {
+        if (action.type === 'ADD_CUSTOMER') {
+          const id = generateId()
+          const customer = {
+            id,
+            name: action.payload.name.trim(),
+            phone: (action.payload.phone || '').trim(),
+            cnic: (action.payload.cnic || '').trim(),
+            address: (action.payload.address || '').trim(),
+            notes: '',
+            transactions: [],
+            userId: uid,
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString(),
+          }
+          await persistCustomer(customer)
+          dispatch({ type: 'ADD_CUSTOMER_LOCAL', payload: customer })
+          return
+        }
+
+        if (action.type === 'UPDATE_CUSTOMER') {
+          const cur = state.customers.find((c) => c.id === action.payload.id)
+          if (!cur) return
+          const updated = {
+            ...cur,
+            ...action.payload.updates,
+            updatedAt: new Date().toISOString(),
+          }
+          await persistCustomer(updated)
+          dispatch({
+            type: 'UPDATE_CUSTOMER_LOCAL',
+            payload: { id: action.payload.id, updates: updated },
+          })
+          return
+        }
+
+        if (action.type === 'DELETE_CUSTOMER') {
+          await removeCustomerDoc(action.payload)
+          dispatch({ type: 'DELETE_CUSTOMER_LOCAL', payload: action.payload })
+          return
+        }
+
+        if (action.type === 'ADD_TRANSACTION') {
+          const cur = state.customers.find((c) => c.id === action.payload.customerId)
+          if (!cur) return
+          const tx = { id: generateId(), ...action.payload.tx }
+          const updated = {
+            ...cur,
+            transactions: [...(cur.transactions || []), tx],
+            updatedAt: new Date().toISOString(),
+          }
+          await persistCustomer(updated)
+          dispatch({
+            type: 'ADD_TRANSACTION_LOCAL',
+            payload: { customerId: action.payload.customerId, tx },
+          })
+          return
+        }
+
+        if (action.type === 'UPDATE_TRANSACTION') {
+          const cur = state.customers.find((c) => c.id === action.payload.customerId)
+          if (!cur) return
+          const updated = {
+            ...cur,
+            transactions: (cur.transactions || []).map((t) =>
+              t.id === action.payload.txId ? { ...t, ...action.payload.updates } : t
+            ),
+            updatedAt: new Date().toISOString(),
+          }
+          await persistCustomer(updated)
+          dispatch({
+            type: 'UPDATE_TRANSACTION_LOCAL',
+            payload: action.payload,
+          })
+          return
+        }
+
+        if (action.type === 'DELETE_TRANSACTION') {
+          const cur = state.customers.find((c) => c.id === action.payload.customerId)
+          if (!cur) return
+          const updated = {
+            ...cur,
+            transactions: (cur.transactions || []).filter((t) => t.id !== action.payload.txId),
+            updatedAt: new Date().toISOString(),
+          }
+          await persistCustomer(updated)
+          dispatch({
+            type: 'DELETE_TRANSACTION_LOCAL',
+            payload: action.payload,
+          })
+          return
+        }
+
+        if (action.type === 'IMPORT_CUSTOMERS') {
+          const list = action.payload || []
+          const merged = [...state.customers]
+          for (const inc of list) {
+            const id = inc.id || generateId()
+            const customer = {
+              ...inc,
+              id,
+              userId: uid,
+              transactions: inc.transactions || [],
+              updatedAt: new Date().toISOString(),
+              createdAt: inc.createdAt || new Date().toISOString(),
+            }
+            await persistCustomer(customer)
+            const idx = merged.findIndex((c) => c.name.toLowerCase() === customer.name.toLowerCase())
+            if (idx >= 0) merged[idx] = { ...merged[idx], ...customer, id: merged[idx].id }
+            else merged.push(customer)
+          }
+          dispatch({ type: 'IMPORT_CUSTOMERS_LOCAL', payload: merged })
+          return
+        }
+
+        if (action.type === 'RESTORE_ALL') {
+          const list = action.payload.customers || []
+          // Replace cloud data for this user
+          for (const c of state.customers) {
+            await removeCustomerDoc(c.id)
+          }
+          const next = []
+          for (const inc of list) {
+            const id = generateId()
+            const customer = {
+              ...inc,
+              id,
+              userId: uid,
+              transactions: inc.transactions || [],
+              createdAt: inc.createdAt || new Date().toISOString(),
+              updatedAt: new Date().toISOString(),
+            }
+            await persistCustomer(customer)
+            next.push(customer)
+          }
+          dispatch({
+            type: 'RESTORE_ALL_LOCAL',
+            payload: { customers: next, business: action.payload.business },
+          })
+          return
+        }
+
+        if (action.type === 'CLEAR_ALL') {
+          for (const c of state.customers) {
+            await removeCustomerDoc(c.id)
+          }
+          dispatch({ type: 'CLEAR_ALL_LOCAL' })
+          return
+        }
+
+        dispatch(action)
+      } catch (e) {
+        console.error(e)
+        dispatch({
+          type: 'TOAST',
+          payload: {
+            type: 'danger',
+            message: e?.code === 'permission-denied' ? 'Permission denied' : 'Save failed. Check internet.',
+          },
+        })
+      }
+    },
+    [uid, state.customers, persistCustomer, removeCustomerDoc]
+  )
 
   const toggleTheme = useCallback(() => {
     dispatch({ type: 'SET_THEME', payload: state.theme === 'dark' ? 'light' : 'dark' })
@@ -305,7 +489,7 @@ export function AppProvider({ children }) {
       const q = state.search.toLowerCase()
       list = list.filter(
         (c) =>
-          c.name.toLowerCase().includes(q) ||
+          (c.name || '').toLowerCase().includes(q) ||
           (c.phone || '').includes(q) ||
           (c.cnic || '').includes(q) ||
           (c.address || '').toLowerCase().includes(q)
@@ -313,7 +497,6 @@ export function AppProvider({ children }) {
     }
     if (state.filter === 'pending') list = list.filter((c) => getCustomerStats(c).pending > 0)
     if (state.filter === 'settled') list = list.filter((c) => getCustomerStats(c).pending === 0)
-
     list.sort((a, b) => {
       const sa = getCustomerStats(a)
       const sb = getCustomerStats(b)
@@ -321,7 +504,7 @@ export function AppProvider({ children }) {
       if (state.sortBy === 'pending') cmp = sa.pending - sb.pending
       else if (state.sortBy === 'total') cmp = sa.totalAmount - sb.totalAmount
       else if (state.sortBy === 'recent') cmp = (a.updatedAt || '').localeCompare(b.updatedAt || '')
-      else cmp = a.name.localeCompare(b.name)
+      else cmp = (a.name || '').localeCompare(b.name || '')
       return state.sortDir === 'asc' ? cmp : -cmp
     })
     return list
@@ -349,7 +532,7 @@ export function AppProvider({ children }) {
         filteredCustomers,
         selectedCustomer,
         globalStats,
-        dispatch,
+        dispatch: appDispatch,
         toggleTheme,
       }}
     >
