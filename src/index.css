@@ -7,6 +7,9 @@
   --text: #0f172a;
   --muted: #64748b;
   --border: #e2e8f0;
+  --font: "Segoe UI", system-ui, -apple-system, Roboto, "Helvetica Neue", Arial,
+    "Noto Sans", "Segoe UI Emoji", "Segoe UI Symbol", "Apple Color Emoji",
+    "Noto Color Emoji", sans-serif;
 }
 
 html.dark {
@@ -26,16 +29,18 @@ body,
 #root {
   margin: 0;
   height: 100%;
-  font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+  font-family: var(--font);
   background: var(--bg);
   color: var(--text);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
 }
 
 button,
 input,
 select,
 textarea {
-  font: inherit;
+  font-family: var(--font);
 }
 
 .card {
@@ -52,6 +57,7 @@ textarea {
   background: var(--card);
   color: var(--text);
   outline: none;
+  font-family: var(--font);
 }
 
 .input:focus {
@@ -70,6 +76,7 @@ textarea {
   background: var(--card);
   color: var(--text);
   cursor: pointer;
+  font-family: var(--font);
   transition: transform 0.12s ease, background 0.15s ease, opacity 0.15s ease;
 }
 

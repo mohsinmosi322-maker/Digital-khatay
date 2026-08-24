@@ -3,6 +3,15 @@ import { useAuth } from '../context/AuthContext'
 import { collection, addDoc, getDoc, doc, serverTimestamp } from 'firebase/firestore'
 import { db } from '../firebase'
 
+function appInitials(name) {
+  const t = (name || 'App').trim()
+  const parts = t.split(/\s+/).filter(Boolean)
+  if (parts.length >= 2) return (parts[0][0] + parts[1][0]).toUpperCase()
+  const caps = t.replace(/[^A-Za-z0-9]/g, '').match(/[A-Z]/g)
+  if (caps && caps.length >= 2) return (caps[0] + caps[1]).toUpperCase()
+  return t.slice(0, 2).toUpperCase()
+}
+
 export default function Login() {
   const { login, authError, setAuthError } = useAuth()
   const [email, setEmail] = useState('')
@@ -70,6 +79,8 @@ export default function Login() {
     }
   }
 
+  const logo = appInitials(brand.appName)
+
   return (
     <div
       style={{
@@ -77,6 +88,8 @@ export default function Login() {
         display: 'flex',
         flexDirection: 'column',
         background: 'linear-gradient(135deg, #0f4a85 0%, #185FA5 50%, #3B82F6 100%)',
+        fontFamily:
+          '"Segoe UI", system-ui, -apple-system, Roboto, Arial, "Segoe UI Emoji", sans-serif',
       }}
     >
       <div style={{ flex: 1, display: 'grid', placeItems: 'center', padding: 16 }}>
@@ -94,19 +107,20 @@ export default function Login() {
           <div style={{ textAlign: 'center', marginBottom: 20 }}>
             <div
               style={{
-                width: 52,
-                height: 52,
+                width: 56,
+                height: 56,
                 borderRadius: 14,
-                margin: '0 auto 10px',
+                margin: '0 auto 12px',
                 background: 'linear-gradient(135deg, #185FA5, #3B82F6)',
                 color: '#fff',
                 display: 'grid',
                 placeItems: 'center',
                 fontWeight: 800,
-                fontSize: 18,
+                fontSize: logo.length > 2 ? 14 : 18,
+                letterSpacing: 0.5,
               }}
             >
-              DK
+              {logo}
             </div>
             <h1 style={{ margin: 0, fontSize: 22, fontWeight: 800, color: '#0f172a' }}>
               {brand.appName}
@@ -163,6 +177,7 @@ export default function Login() {
               borderRadius: 10,
               fontSize: 14,
               boxSizing: 'border-box',
+              fontFamily: 'inherit',
             }}
           />
 
@@ -182,6 +197,7 @@ export default function Login() {
                   borderRadius: 10,
                   fontSize: 14,
                   boxSizing: 'border-box',
+                  fontFamily: 'inherit',
                 }}
               />
             </>
@@ -200,6 +216,7 @@ export default function Login() {
               fontWeight: 700,
               fontSize: 15,
               cursor: busy ? 'wait' : 'pointer',
+              fontFamily: 'inherit',
             }}
           >
             {busy ? 'Please wait…' : mode === 'login' ? 'Login' : 'Send Request to Admin'}
@@ -221,9 +238,10 @@ export default function Login() {
               fontWeight: 600,
               fontSize: 13,
               cursor: 'pointer',
+              fontFamily: 'inherit',
             }}
           >
-            {mode === 'login' ? 'Forgot password?' : '← Back to Login'}
+            {mode === 'login' ? 'Forgot password?' : 'Back to Login'}
           </button>
 
           <p style={{ margin: '16px 0 0', fontSize: 11, color: '#94a3b8', textAlign: 'center' }}>
