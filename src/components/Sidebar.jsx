@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { useApp } from '../context/AppContext'
+import { useAuth } from '../context/AuthContext'
 import { formatCurrency, getCustomerStats } from '../utils/storage'
 
 export default function Sidebar({ mobileOpen, setMobileOpen }) {
@@ -14,7 +15,9 @@ export default function Sidebar({ mobileOpen, setMobileOpen }) {
     business,
     dispatch,
     toggleTheme,
+    reload,
   } = useApp()
+  const { logout, profile } = useAuth()
 
   const [showAdd, setShowAdd] = useState(false)
   const [form, setForm] = useState({ name: '', phone: '', cnic: '', address: '' })
@@ -46,7 +49,7 @@ export default function Sidebar({ mobileOpen, setMobileOpen }) {
           >
             DK
           </div>
-          <div style={{ minWidth: 0 }}>
+          <div style={{ minWidth: 0, flex: 1 }}>
             <div
               style={{
                 fontWeight: 800,
@@ -56,7 +59,7 @@ export default function Sidebar({ mobileOpen, setMobileOpen }) {
                 textOverflow: 'ellipsis',
               }}
             >
-              {business?.name || 'Digital Khata'}
+              {business?.name || profile?.businessName || 'Digital Khata'}
             </div>
             <div style={{ fontSize: 11, color: 'var(--muted)' }}>Enterprise Ledger</div>
           </div>
@@ -171,7 +174,7 @@ export default function Sidebar({ mobileOpen, setMobileOpen }) {
                     color: stats.pending > 0 ? 'var(--danger)' : 'var(--success)',
                   }}
                 >
-                  {c.name.charAt(0).toUpperCase()}
+                  {(c.name || '?').charAt(0).toUpperCase()}
                 </div>
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div
@@ -250,6 +253,22 @@ export default function Sidebar({ mobileOpen, setMobileOpen }) {
         )}
         <button className="btn btn-ghost" style={{ width: '100%', marginTop: 8 }} onClick={toggleTheme}>
           {theme === 'dark' ? '☀ Light mode' : '🌙 Dark mode'}
+        </button>
+        {typeof reload === 'function' && (
+          <button
+            className="btn btn-ghost"
+            style={{ width: '100%', marginTop: 8 }}
+            onClick={() => reload()}
+          >
+            ↻ Refresh data
+          </button>
+        )}
+        <button
+          className="btn btn-ghost"
+          style={{ width: '100%', marginTop: 8, color: 'var(--danger)' }}
+          onClick={() => logout()}
+        >
+          Logout
         </button>
       </div>
     </aside>

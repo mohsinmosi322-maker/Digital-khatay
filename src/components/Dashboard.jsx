@@ -1,9 +1,9 @@
 import { useRef } from 'react'
 import { useApp } from '../context/AppContext'
-import { formatCurrency, getCustomerStats, clearAllData, loadBusiness } from '../utils/storage'
+import { formatCurrency, getCustomerStats } from '../utils/storage'
 
 export default function Dashboard() {
-  const { customers, globalStats, business, dispatch } = useApp()
+  const { customers, globalStats, business, dispatch, reload } = useApp()
   const fileRef = useRef(null)
 
   const topPending = [...customers]
@@ -38,7 +38,7 @@ export default function Dashboard() {
       if (!Array.isArray(list)) throw new Error('Invalid backup')
       dispatch({
         type: 'RESTORE_ALL',
-        payload: { customers: list, business: data.business || loadBusiness() },
+        payload: { customers: list, business: data.business || business },
       })
     } catch {
       alert('Invalid backup file')
@@ -48,11 +48,27 @@ export default function Dashboard() {
 
   return (
     <div style={{ padding: 16, height: '100%', overflowY: 'auto', background: 'var(--bg)' }}>
-      <div style={{ marginBottom: 18 }}>
-        <h2 style={{ margin: '0 0 4px', fontSize: 22, fontWeight: 800 }}>Dashboard</h2>
-        <p style={{ margin: 0, color: 'var(--muted)', fontSize: 13 }}>
-          Overview, outstanding accounts & data tools
-        </p>
+      <div
+        style={{
+          marginBottom: 18,
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'flex-start',
+          gap: 12,
+          flexWrap: 'wrap',
+        }}
+      >
+        <div>
+          <h2 style={{ margin: '0 0 4px', fontSize: 22, fontWeight: 800 }}>Dashboard</h2>
+          <p style={{ margin: 0, color: 'var(--muted)', fontSize: 13 }}>
+            Overview, outstanding accounts & backup
+          </p>
+        </div>
+        {typeof reload === 'function' && (
+          <button className="btn btn-ghost" onClick={() => reload()}>
+            ↻ Refresh
+          </button>
+        )}
       </div>
 
       <div
@@ -109,9 +125,9 @@ export default function Dashboard() {
       </div>
 
       <div className="card" style={{ padding: 16, maxWidth: 420 }}>
-        <h3 style={{ margin: '0 0 8px', fontSize: 15, fontWeight: 800 }}>Backup & Data</h3>
+        <h3 style={{ margin: '0 0 8px', fontSize: 15, fontWeight: 800 }}>Backup & Restore</h3>
         <p style={{ margin: '0 0 12px', fontSize: 12, color: 'var(--muted)', lineHeight: 1.45 }}>
-          Download backup regularly. Restore only from a trusted file.
+          Data cloud (Firestore) pe save hoti hai. Backup extra safety ke liye rakhein.
         </p>
         <div style={{ display: 'grid', gap: 8 }}>
           <button className="btn btn-primary" onClick={handleBackup}>
@@ -120,17 +136,6 @@ export default function Dashboard() {
           <input ref={fileRef} type="file" accept=".json" style={{ display: 'none' }} onChange={handleRestore} />
           <button className="btn btn-ghost" onClick={() => fileRef.current?.click()}>
             Restore from Backup
-          </button>
-          <button
-            className="btn btn-danger-outline"
-            onClick={() => {
-              if (window.confirm('Delete ALL data? Take backup first!')) {
-                clearAllData()
-                dispatch({ type: 'CLEAR_ALL' })
-              }
-            }}
-          >
-            Clear All Data
           </button>
         </div>
       </div>
