@@ -7,12 +7,13 @@ import {
 import {
   doc,
   getDoc,
+  getDocFromServer,
   setDoc,
   addDoc,
   collection,
   serverTimestamp,
 } from 'firebase/firestore'
-import { auth, db } from '../firebase'
+import { auth, db, ensureFirestoreDb } from '../firebase'
 
 const AuthContext = createContext(null)
 
@@ -20,18 +21,35 @@ function friendlyError(e) {
   const code = e?.code || ''
   const msg = (e?.message || '').toLowerCase()
   if (code === 'unavailable' || msg.includes('offline') || msg.includes('client is offline')) {
-    return 'Cannot reach database (offline). Check internet, turn off Network Offline in DevTools, and confirm Firestore is created in Firebase Console.'
+    return 'Cannot reach database (offline). Check internet, DevTools Network Offline OFF, and that Firestore has data in this project.'
   }
   if (code === 'permission-denied') {
     return 'Permission denied. Check Firestore rules and users/{UID} document.'
   }
-  if (code === 'auth/invalid-credential' || code === 'auth/wrong-password' || code === 'auth/user-not-found') {
+  if (
+    code === 'auth/invalid-credential' ||
+    code === 'auth/wrong-password' ||
+    code === 'auth/user-not-found' ||
+    code === 'auth/invalid-email'
+  ) {
     return 'Invalid email or password.'
   }
   if (code === 'auth/too-many-requests') {
     return 'Too many attempts. Try again later.'
   }
   return e?.message || 'Login failed. Try again.'
+}
+
+async function loadUserProfile(uid) {
+  // ensure we are on a reachable DB instance
+  const database = await ensureFirestoreDb()
+  const ref = doc(database, 'users', uid)
+  // prefer server so we don't get stuck on empty offline cache
+  try {
+    return await getDocFromServer(ref)
+  } catch {
+    return await getDoc(ref)
+  }
 }
 
 export function AuthProvider({ children }) {
@@ -49,11 +67,11 @@ export function AuthProvider({ children }) {
         return
       }
       try {
-        const snap = await getDoc(doc(db, 'users', fbUser.uid))
+        const snap = await loadUserProfile(fbUser.uid)
         if (!snap.exists()) {
           await signOut(auth)
           setProfile(null)
-          setAuthError('Account not found. Contact admin.')
+          setAuthError('Account not found. Create Firestore users/{UID} with role and status.')
           setLoading(false)
           return
         }
@@ -90,10 +108,10 @@ export function AuthProvider({ children }) {
     setAuthError('')
     try {
       const cred = await signInWithEmailAndPassword(auth, email.trim(), password)
-      const snap = await getDoc(doc(db, 'users', cred.user.uid))
+      const snap = await loadUserProfile(cred.user.uid)
       if (!snap.exists()) {
         await signOut(auth)
-        setAuthError('Account not found. Create users/{UID} in Firestore (same UID as Authentication).')
+        setAuthError('Account not found. Create Firestore users/{UID} (document ID = Auth UID).')
         return false
       }
       const data = snap.data()
