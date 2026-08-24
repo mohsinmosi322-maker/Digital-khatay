@@ -1,17 +1,16 @@
 import { useState } from 'react'
+import { AuthProvider, useAuth } from './context/AuthContext'
 import { AppProvider, useApp } from './context/AppContext'
 import Sidebar from './components/Sidebar'
 import Ledger from './components/Ledger'
 import Dashboard from './components/Dashboard'
+import Login from './components/Login'
 
 function AnimatedFeedback() {
   const { toast } = useApp()
   if (!toast) return null
-  
-  // danger = red, but still show tick unless message is delete/error
   const isRed = toast.type === 'danger'
   const bg = isRed ? '#d93b3a' : toast.type === 'success' ? '#2f6b12' : '#185FA5'
-
   const msg = (toast.message || '').toLowerCase()
   const showCross =
     msg.includes('deleted') ||
@@ -39,7 +38,6 @@ function AnimatedFeedback() {
           padding: '32px 40px',
           textAlign: 'center',
           boxShadow: '0 24px 60px rgba(0,0,0,0.25)',
-          animation: 'popIn 0.35s ease',
           minWidth: 220,
           maxWidth: '90vw',
         }}
@@ -53,7 +51,6 @@ function AnimatedFeedback() {
             background: bg,
             display: 'grid',
             placeItems: 'center',
-            animation: 'scaleIn 0.4s ease',
           }}
         >
           {showCross ? (
@@ -62,51 +59,67 @@ function AnimatedFeedback() {
             </svg>
           ) : (
             <svg width="36" height="36" viewBox="0 0 24 24" fill="none">
-              <path
-                d="M5 13l4 4L19 7"
-                stroke="#fff"
-                strokeWidth="2.8"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              />
+              <path d="M5 13l4 4L19 7" stroke="#fff" strokeWidth="2.8" strokeLinecap="round" strokeLinejoin="round" />
             </svg>
           )}
         </div>
         <div style={{ fontWeight: 800, fontSize: 18, color: 'var(--text)' }}>{toast.message}</div>
       </div>
-      <style>{`
-        @keyframes scaleIn {
-          0% { transform: scale(0); opacity: 0; }
-          60% { transform: scale(1.15); }
-          100% { transform: scale(1); opacity: 1; }
-        }
-        @keyframes popIn {
-          from { transform: scale(0.85); opacity: 0; }
-          to { transform: scale(1); opacity: 1; }
-        }
-      `}</style>
     </div>
   )
 }
-function AppShell() {
+
+function KhataShell() {
   const { view, loaded, business } = useApp()
+  const { profile, logout, isAdmin } = useAuth()
   const [mobileOpen, setMobileOpen] = useState(false)
 
   if (!loaded) {
     return (
       <div style={{ height: '100vh', display: 'grid', placeItems: 'center', background: 'var(--bg)' }}>
-        <div style={{ textAlign: 'center' }}>
-          <div
+        <div style={{ fontWeight: 700, color: '#185FA5' }}>Loading Khata…</div>
+      </div>
+    )
+  }
+
+  if (isAdmin) {
+    return (
+      <div style={{ minHeight: '100vh', background: '#f1f5f9', padding: 24 }}>
+        <div
+          style={{
+            maxWidth: 720,
+            margin: '0 auto',
+            background: '#fff',
+            borderRadius: 16,
+            padding: 24,
+            boxShadow: '0 4px 20px rgba(0,0,0,0.06)',
+          }}
+        >
+          <h1 style={{ margin: '0 0 8px' }}>Admin Panel</h1>
+          <p style={{ color: '#64748b', margin: '0 0 8px' }}>
+            Logged in as <strong>{profile?.email}</strong>
+          </p>
+          <p style={{ fontSize: 13, color: '#94a3b8' }}>
+            Admin manages users only — user Khata data is private.
+          </p>
+          <p style={{ fontSize: 13, color: '#64748b', marginTop: 12 }}>
+            Full user management, permissions, login history coming next.
+          </p>
+          <button
+            onClick={logout}
             style={{
-              width: 42,
-              height: 42,
-              borderRadius: 12,
-              margin: '0 auto 12px',
-              background: 'linear-gradient(135deg, #185FA5, #3B82F6)',
+              marginTop: 16,
+              padding: '10px 16px',
+              background: '#185FA5',
+              color: '#fff',
+              border: 'none',
+              borderRadius: 8,
+              cursor: 'pointer',
+              fontWeight: 600,
             }}
-          />
-          <div style={{ fontWeight: 700 }}>Digital Khata</div>
-          <div style={{ fontSize: 13, color: 'var(--muted)', marginTop: 4 }}>Loading…</div>
+          >
+            Logout
+          </button>
         </div>
       </div>
     )
@@ -118,32 +131,51 @@ function AppShell() {
         className={`overlay ${mobileOpen ? 'show' : ''} no-print`}
         onClick={() => setMobileOpen(false)}
       />
-
       <header className="mobile-header no-print">
         <button className="btn btn-ghost" onClick={() => setMobileOpen(true)} style={{ padding: '8px 10px' }}>
           ☰
         </button>
         <div>
-          <div style={{ fontWeight: 700, fontSize: 14 }}>{business?.name || 'Digital Khata'}</div>
+          <div style={{ fontWeight: 700, fontSize: 14 }}>
+            {profile?.fullName || business?.name || 'Digital Khata'}
+          </div>
           <div style={{ fontSize: 11, color: 'var(--muted)' }}>Debit & Recovery</div>
         </div>
+        <button className="btn btn-ghost" style={{ marginLeft: 'auto' }} onClick={logout}>
+          Logout
+        </button>
       </header>
-
       <Sidebar mobileOpen={mobileOpen} setMobileOpen={setMobileOpen} />
-
-      <main className="main-panel">
-        {view === 'dashboard' ? <Dashboard /> : <Ledger />}
-      </main>
-
+      <main className="main-panel">{view === 'dashboard' ? <Dashboard /> : <Ledger />}</main>
       <AnimatedFeedback />
     </div>
   )
 }
 
-export default function App() {
+function Root() {
+  const { user, profile, loading } = useAuth()
+
+  if (loading) {
+    return (
+      <div style={{ height: '100vh', display: 'grid', placeItems: 'center', background: '#f1f5f9' }}>
+        <div style={{ fontWeight: 700, color: '#185FA5' }}>Digital Khata</div>
+      </div>
+    )
+  }
+
+  if (!user || !profile) return <Login />
+
   return (
     <AppProvider>
-      <AppShell />
+      <KhataShell />
     </AppProvider>
+  )
+}
+
+export default function App() {
+  return (
+    <AuthProvider>
+      <Root />
+    </AuthProvider>
   )
 }
