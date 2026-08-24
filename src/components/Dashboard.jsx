@@ -1,11 +1,10 @@
-import { useRef, useState } from 'react'
+import { useRef } from 'react'
 import { useApp } from '../context/AppContext'
 import { formatCurrency, getCustomerStats, clearAllData, loadBusiness } from '../utils/storage'
 
 export default function Dashboard() {
   const { customers, globalStats, business, dispatch } = useApp()
   const fileRef = useRef(null)
-  const [biz, setBiz] = useState(business)
 
   const topPending = [...customers]
     .map((c) => ({ name: c.name, phone: c.phone, ...getCustomerStats(c) }))
@@ -47,17 +46,12 @@ export default function Dashboard() {
     e.target.value = ''
   }
 
-  const saveBusiness = () => {
-    dispatch({ type: 'SET_BUSINESS', payload: biz })
-    dispatch({ type: 'TOAST', payload: { type: 'success', message: 'Business Profile Saved' } })
-  }
-
   return (
     <div style={{ padding: 16, height: '100%', overflowY: 'auto', background: 'var(--bg)' }}>
       <div style={{ marginBottom: 18 }}>
         <h2 style={{ margin: '0 0 4px', fontSize: 22, fontWeight: 800 }}>Dashboard</h2>
         <p style={{ margin: 0, color: 'var(--muted)', fontSize: 13 }}>
-          Business overview, outstanding accounts & data tools
+          Overview, outstanding accounts & data tools
         </p>
       </div>
 
@@ -114,65 +108,30 @@ export default function Dashboard() {
         )}
       </div>
 
-      <div
-        style={{
-          display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))',
-          gap: 14,
-        }}
-      >
-        <div className="card" style={{ padding: 16 }}>
-          <h3 style={{ margin: '0 0 12px', fontSize: 15, fontWeight: 800 }}>Business Profile</h3>
-          <div style={{ display: 'grid', gap: 8 }}>
-            <input
-              className="input"
-              placeholder="Shop / Business name"
-              value={biz.name || ''}
-              onChange={(e) => setBiz({ ...biz, name: e.target.value })}
-            />
-            <input
-              className="input"
-              placeholder="Phone"
-              value={biz.phone || ''}
-              onChange={(e) => setBiz({ ...biz, phone: e.target.value })}
-            />
-            <input
-              className="input"
-              placeholder="Address"
-              value={biz.address || ''}
-              onChange={(e) => setBiz({ ...biz, address: e.target.value })}
-            />
-            <button className="btn btn-primary" onClick={saveBusiness}>
-              Save Profile
-            </button>
-          </div>
-        </div>
-
-        <div className="card" style={{ padding: 16 }}>
-          <h3 style={{ margin: '0 0 8px', fontSize: 15, fontWeight: 800 }}>Backup & Data</h3>
-          <p style={{ margin: '0 0 12px', fontSize: 12, color: 'var(--muted)', lineHeight: 1.45 }}>
-            Data is stored in this browser only. Download backup regularly.
-          </p>
-          <div style={{ display: 'grid', gap: 8 }}>
-            <button className="btn btn-primary" onClick={handleBackup}>
-              Download Backup (JSON)
-            </button>
-            <input ref={fileRef} type="file" accept=".json" style={{ display: 'none' }} onChange={handleRestore} />
-            <button className="btn btn-ghost" onClick={() => fileRef.current?.click()}>
-              Restore from Backup
-            </button>
-            <button
-              className="btn btn-danger-outline"
-              onClick={() => {
-                if (window.confirm('Delete ALL data? Take backup first!')) {
-                  clearAllData()
-                  dispatch({ type: 'CLEAR_ALL' })
-                }
-              }}
-            >
-              Clear All Data
-            </button>
-          </div>
+      <div className="card" style={{ padding: 16, maxWidth: 420 }}>
+        <h3 style={{ margin: '0 0 8px', fontSize: 15, fontWeight: 800 }}>Backup & Data</h3>
+        <p style={{ margin: '0 0 12px', fontSize: 12, color: 'var(--muted)', lineHeight: 1.45 }}>
+          Download backup regularly. Restore only from a trusted file.
+        </p>
+        <div style={{ display: 'grid', gap: 8 }}>
+          <button className="btn btn-primary" onClick={handleBackup}>
+            Download Backup (JSON)
+          </button>
+          <input ref={fileRef} type="file" accept=".json" style={{ display: 'none' }} onChange={handleRestore} />
+          <button className="btn btn-ghost" onClick={() => fileRef.current?.click()}>
+            Restore from Backup
+          </button>
+          <button
+            className="btn btn-danger-outline"
+            onClick={() => {
+              if (window.confirm('Delete ALL data? Take backup first!')) {
+                clearAllData()
+                dispatch({ type: 'CLEAR_ALL' })
+              }
+            }}
+          >
+            Clear All Data
+          </button>
         </div>
       </div>
     </div>
