@@ -1,6 +1,6 @@
 import { initializeApp } from 'firebase/app'
 import { getAuth } from 'firebase/auth'
-import { getFirestore } from 'firebase/firestore'
+import { initializeFirestore, getFirestore } from 'firebase/firestore'
 
 const firebaseConfig = {
   apiKey: 'AIzaSyBCrb7MxRFNj_qvGf-HJumbnWFXd3dskno',
@@ -14,5 +14,15 @@ const firebaseConfig = {
 
 const app = initializeApp(firebaseConfig)
 export const auth = getAuth(app)
-export const db = getFirestore(app)
+
+// Better connectivity on some networks
+let db
+try {
+  db = initializeFirestore(app, {
+    experimentalForceLongPolling: true,
+  })
+} catch {
+  db = getFirestore(app)
+}
+export { db }
 export default app
