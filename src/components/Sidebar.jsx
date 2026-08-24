@@ -12,7 +12,7 @@ export default function Sidebar({ mobileOpen, setMobileOpen }) {
     theme,
     view,
     globalStats,
-    business,
+    branding,
     dispatch,
     toggleTheme,
     reload,
@@ -21,6 +21,8 @@ export default function Sidebar({ mobileOpen, setMobileOpen }) {
   const [showAdd, setShowAdd] = useState(false)
   const [form, setForm] = useState({ name: '', phone: '', cnic: '', address: '' })
   const [logoutAsk, setLogoutAsk] = useState(false)
+
+  const appName = branding?.appName || 'Digital Khata'
 
   const handleAdd = (e) => {
     e.preventDefault()
@@ -37,14 +39,16 @@ export default function Sidebar({ mobileOpen, setMobileOpen }) {
         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
           <div
             style={{
-              width: 38,
-              height: 38,
-              borderRadius: 11,
+              width: 40,
+              height: 40,
+              borderRadius: 12,
               background: 'linear-gradient(135deg, #185FA5, #3B82F6)',
               color: '#fff',
               display: 'grid',
               placeItems: 'center',
               fontWeight: 800,
+              fontSize: 15,
+              boxShadow: '0 4px 12px rgba(24,95,165,0.35)',
             }}
           >
             DK
@@ -59,9 +63,11 @@ export default function Sidebar({ mobileOpen, setMobileOpen }) {
                 textOverflow: 'ellipsis',
               }}
             >
-              {business?.name || profile?.businessName || 'Digital Khata'}
+              {appName}
             </div>
-            <div style={{ fontSize: 11, color: 'var(--muted)' }}>Enterprise Ledger</div>
+            <div style={{ fontSize: 11, color: 'var(--muted)' }}>
+              {profile?.fullName ? `👤 ${profile.fullName}` : 'Enterprise Ledger'}
+            </div>
           </div>
         </div>
       </div>
@@ -74,9 +80,10 @@ export default function Sidebar({ mobileOpen, setMobileOpen }) {
             background: view === 'ledger' ? 'rgba(24,95,165,0.12)' : 'transparent',
             color: view === 'ledger' ? 'var(--primary)' : 'var(--muted)',
             border: '1px solid var(--border)',
+            fontWeight: 700,
           }}
         >
-          Customers
+          👥 Customers
         </button>
         <button
           className="btn"
@@ -88,21 +95,22 @@ export default function Sidebar({ mobileOpen, setMobileOpen }) {
             background: view === 'dashboard' ? 'rgba(24,95,165,0.12)' : 'transparent',
             color: view === 'dashboard' ? 'var(--primary)' : 'var(--muted)',
             border: '1px solid var(--border)',
+            fontWeight: 700,
           }}
         >
-          Dashboard
+          📊 Dashboard
         </button>
       </div>
 
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, padding: '0 12px 12px' }}>
         <div className="card" style={{ padding: 10 }}>
-          <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--danger)' }}>PENDING</div>
+          <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--danger)' }}>⏳ PENDING</div>
           <div style={{ fontWeight: 800, color: 'var(--danger)', marginTop: 2, fontSize: 13 }}>
             {formatCurrency(globalStats.pending)}
           </div>
         </div>
         <div className="card" style={{ padding: 10 }}>
-          <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--success)' }}>RECEIVED</div>
+          <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--success)' }}>✅ RECEIVED</div>
           <div style={{ fontWeight: 800, color: 'var(--success)', marginTop: 2, fontSize: 13 }}>
             {formatCurrency(globalStats.totalReceived)}
           </div>
@@ -113,7 +121,7 @@ export default function Sidebar({ mobileOpen, setMobileOpen }) {
         <input
           className="input"
           type="search"
-          placeholder="Search name, phone, CNIC…"
+          placeholder="🔍 Search name, phone, CNIC…"
           value={search}
           onChange={(e) => dispatch({ type: 'SET_SEARCH', payload: e.target.value })}
         />
@@ -249,11 +257,11 @@ export default function Sidebar({ mobileOpen, setMobileOpen }) {
           </form>
         ) : (
           <button className="btn btn-primary" style={{ width: '100%' }} onClick={() => setShowAdd(true)}>
-            + Add Customer
+            ➕ Add Customer
           </button>
         )}
         <button className="btn btn-ghost" style={{ width: '100%', marginTop: 8 }} onClick={toggleTheme}>
-          {theme === 'dark' ? '☀ Light mode' : '🌙 Dark mode'}
+          {theme === 'dark' ? '☀️ Light mode' : '🌙 Dark mode'}
         </button>
         {typeof reload === 'function' && (
           <button className="btn btn-ghost" style={{ width: '100%', marginTop: 8 }} onClick={() => reload()}>
@@ -265,7 +273,7 @@ export default function Sidebar({ mobileOpen, setMobileOpen }) {
           style={{ width: '100%', marginTop: 8, color: 'var(--danger)' }}
           onClick={() => setLogoutAsk(true)}
         >
-          Logout
+          🚪 Logout
         </button>
       </div>
 

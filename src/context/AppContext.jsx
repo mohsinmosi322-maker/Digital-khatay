@@ -24,7 +24,12 @@ const initialState = {
   filter: 'all',
   theme: 'light',
   view: 'ledger',
-  business: { name: 'My Business', phone: '', address: '', currency: 'PKR' },
+  business: { name: 'Digital Khata', phone: '', address: '', currency: 'PKR' },
+  branding: {
+    appName: 'Digital Khata',
+    publisherName: '',
+    publisherRemarks: '',
+  },
   toast: null,
   loaded: false,
 }
@@ -37,6 +42,7 @@ function reducer(state, action) {
         customers: action.payload.customers || [],
         theme: action.payload.theme || state.theme,
         business: action.payload.business || state.business,
+        branding: action.payload.branding || state.branding,
         loaded: true,
         selectedId: action.payload.keepSelected ? state.selectedId : null,
       }
@@ -178,38 +184,45 @@ function toFirestoreCustomer(c, userId) {
   }
 }
 
-async function resolveBusiness(profile) {
-  let business = { name: 'My Business', phone: '', address: '', currency: 'PKR' }
+async function resolveBrandingAndBusiness(profile) {
+  let branding = {
+    appName: 'Digital Khata',
+    publisherName: '',
+    publisherRemarks: '',
+  }
+  let business = {
+    name: 'Digital Khata',
+    phone: '',
+    address: '',
+    currency: 'PKR',
+  }
+
   try {
     const sSnap = await getDoc(doc(db, 'settings', 'app'))
     if (sSnap.exists()) {
       const s = sSnap.data()
-      if (s.businessName) {
-        business = {
-          name: s.businessName,
-          phone: s.businessPhone || '',
-          address: s.businessAddress || '',
-          currency: s.businessCurrency || 'PKR',
-        }
+      const appName = s.appName || s.businessName || 'Digital Khata'
+      branding = {
+        appName,
+        publisherName: s.publisherName || '',
+        publisherRemarks: s.publisherRemarks || '',
+      }
+      // All users see admin app name as shop title (synced)
+      business = {
+        name: appName,
+        phone: s.businessPhone || s.contactWhatsApp || '',
+        address: s.businessAddress || '',
+        currency: s.businessCurrency || 'PKR',
       }
     }
   } catch (_) {}
-  if (profile?.businessName) business = { ...business, name: profile.businessName }
-  if (profile?.id) {
-    try {
-      const bSnap = await getDoc(doc(db, 'business', profile.id))
-      if (bSnap.exists()) {
-        const b = bSnap.data()
-        business = {
-          name: b.name || business.name,
-          phone: b.phone || business.phone,
-          address: b.address || business.address,
-          currency: b.currency || business.currency,
-        }
-      }
-    } catch (_) {}
+
+  // Optional: user shop name only if admin left app name empty (rare)
+  if (profile?.businessName && branding.appName === 'Digital Khata') {
+    business = { ...business, name: profile.businessName }
   }
-  return business
+
+  return { branding, business }
 }
 
 export function AppProvider({ children }) {
@@ -222,7 +235,7 @@ export function AppProvider({ children }) {
     async (opts = {}) => {
       if (!uid) return
       try {
-        const business = await resolveBusiness(profile)
+        const { branding, business } = await resolveBrandingAndBusiness(profile)
         const q = query(collection(db, 'customers'), where('userId', '==', uid))
         const snap = await getDocs(q)
         const customers = snap.docs.map((d) => ({
@@ -236,6 +249,7 @@ export function AppProvider({ children }) {
             customers,
             theme: loadTheme(),
             business,
+            branding,
             keepSelected: !!opts.keepSelected,
           },
         })
@@ -244,12 +258,14 @@ export function AppProvider({ children }) {
         }
       } catch (e) {
         console.error(e)
+        const { branding, business } = await resolveBrandingAndBusiness(profile)
         dispatch({
           type: 'INIT',
           payload: {
             customers: state.customers,
             theme: loadTheme(),
-            business: await resolveBusiness(profile),
+            business,
+            branding,
             keepSelected: true,
           },
         })
@@ -259,15 +275,14 @@ export function AppProvider({ children }) {
         })
       }
     },
-    [uid, profile, state.customers]
+    [uid, profile]
   )
 
   useEffect(() => {
     if (!uid) return
     loadCloud()
-  }, [uid, profile?.businessName, tick])
+  }, [uid, tick])
 
-  // Auto-refresh when user returns to the tab
   useEffect(() => {
     const onVis = () => {
       if (document.visibilityState === 'visible' && uid) setTick((t) => t + 1)

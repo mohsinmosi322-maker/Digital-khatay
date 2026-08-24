@@ -20,7 +20,8 @@ function AnimatedFeedback() {
     msg.includes('invalid') ||
     msg.includes('enter a valid') ||
     msg.includes('pending balance') ||
-    msg.includes('overpaid')
+    msg.includes('overpaid') ||
+    msg.includes('settle')
 
   return (
     <div
@@ -73,21 +74,68 @@ function AnimatedFeedback() {
   )
 }
 
+function AppFooter() {
+  const { branding } = useApp()
+  const name = branding?.appName || 'Digital Khata'
+  const pub = branding?.publisherName || ''
+  const remarks = branding?.publisherRemarks || ''
+  if (!pub && !remarks) {
+    return (
+      <footer
+        className="no-print app-footer"
+        style={{
+          textAlign: 'center',
+          padding: '8px 12px',
+          fontSize: 11,
+          color: 'var(--muted)',
+          borderTop: '1px solid var(--border)',
+          background: 'var(--card)',
+        }}
+      >
+        {name}
+      </footer>
+    )
+  }
+  return (
+    <footer
+      className="no-print app-footer"
+      style={{
+        textAlign: 'center',
+        padding: '8px 12px',
+        fontSize: 11,
+        color: 'var(--muted)',
+        borderTop: '1px solid var(--border)',
+        background: 'var(--card)',
+        lineHeight: 1.4,
+      }}
+    >
+      <div style={{ fontWeight: 700, color: 'var(--text)' }}>{name}</div>
+      <div>
+        {pub}
+        {pub && remarks ? ' · ' : ''}
+        {remarks}
+      </div>
+    </footer>
+  )
+}
+
 function KhataShell() {
-  const { view, loaded, business } = useApp()
+  const { view, loaded, branding } = useApp()
   const { profile } = useAuth()
   const [mobileOpen, setMobileOpen] = useState(false)
 
   if (!loaded) {
     return (
       <div style={{ height: '100vh', display: 'grid', placeItems: 'center', background: 'var(--bg)' }}>
-        <div style={{ fontWeight: 700, color: '#185FA5' }}>Loading Khata…</div>
+        <div style={{ fontWeight: 700, color: '#185FA5' }}>
+          Loading {branding?.appName || 'Khata'}…
+        </div>
       </div>
     )
   }
 
   return (
-    <div className="app-shell">
+    <div className="app-shell" style={{ gridTemplateRows: 'auto 1fr auto' }}>
       <div
         className={`overlay ${mobileOpen ? 'show' : ''} no-print`}
         onClick={() => setMobileOpen(false)}
@@ -98,13 +146,18 @@ function KhataShell() {
         </button>
         <div>
           <div style={{ fontWeight: 700, fontSize: 14 }}>
-            {profile?.fullName || business?.name || 'Digital Khata'}
+            {branding?.appName || profile?.fullName || 'Digital Khata'}
           </div>
           <div style={{ fontSize: 11, color: 'var(--muted)' }}>Debit & Recovery</div>
         </div>
       </header>
       <Sidebar mobileOpen={mobileOpen} setMobileOpen={setMobileOpen} />
-      <main className="main-panel">{view === 'dashboard' ? <Dashboard /> : <Ledger />}</main>
+      <main className="main-panel" style={{ display: 'flex', flexDirection: 'column' }}>
+        <div style={{ flex: 1, minHeight: 0, overflow: 'hidden' }}>
+          {view === 'dashboard' ? <Dashboard /> : <Ledger />}
+        </div>
+        <AppFooter />
+      </main>
       <AnimatedFeedback />
     </div>
   )
