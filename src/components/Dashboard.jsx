@@ -47,7 +47,7 @@ export default function Dashboard() {
   }
 
   return (
-    <div className="anim-fade" style={{ padding: 16, height: '100%', overflowY: 'auto', background: 'var(--bg)' }}>
+    <div className="anim-fade" style={{ padding: 16, height: '100%', overflowY: 'auto', background: 'var(--bg)', color: 'var(--text)' }}>
       <div
         style={{
           marginBottom: 18,
@@ -59,14 +59,16 @@ export default function Dashboard() {
         }}
       >
         <div>
-          <h2 style={{ margin: '0 0 4px', fontSize: 22, fontWeight: 800 }}>Dashboard</h2>
+          <h2 style={{ margin: '0 0 4px', fontSize: 22, fontWeight: 800, color: 'var(--text)' }}>
+            📊 Dashboard
+          </h2>
           <p style={{ margin: 0, color: 'var(--muted)', fontSize: 13 }}>
             {branding?.appName || 'Digital Khata'} · overview & backup
           </p>
         </div>
         {typeof reload === 'function' && (
           <button className="btn btn-ghost" onClick={() => reload()}>
-            Refresh
+            ↻ Refresh
           </button>
         )}
       </div>
@@ -80,10 +82,10 @@ export default function Dashboard() {
         }}
       >
         {[
-          ['Customers', globalStats.count, 'var(--primary)'],
-          ['Total Debit', formatCurrency(globalStats.totalAmount), 'var(--primary)'],
-          ['Received', formatCurrency(globalStats.totalReceived), 'var(--success)'],
-          ['Outstanding', formatCurrency(globalStats.pending), 'var(--danger)'],
+          ['👥 Customers', globalStats.count, 'var(--primary)'],
+          ['💳 Total Debit', formatCurrency(globalStats.totalAmount), 'var(--primary)'],
+          ['✅ Received', formatCurrency(globalStats.totalReceived), 'var(--success)'],
+          ['⏳ Outstanding', formatCurrency(globalStats.pending), 'var(--danger)'],
         ].map(([label, val, color]) => (
           <div key={label} className="card" style={{ padding: 14 }}>
             <div style={{ fontSize: 12, color: 'var(--muted)', fontWeight: 600 }}>{label}</div>
@@ -93,7 +95,9 @@ export default function Dashboard() {
       </div>
 
       <div className="card" style={{ padding: 16, marginBottom: 16 }}>
-        <h3 style={{ margin: '0 0 12px', fontSize: 15, fontWeight: 800 }}>Top Outstanding</h3>
+        <h3 style={{ margin: '0 0 12px', fontSize: 15, fontWeight: 800, color: 'var(--text)' }}>
+          ⏳ Top Outstanding
+        </h3>
         {topPending.length === 0 ? (
           <p style={{ color: 'var(--muted)', textAlign: 'center', margin: '18px 0' }}>All accounts settled</p>
         ) : (
@@ -111,7 +115,7 @@ export default function Dashboard() {
                 {topPending.map((c, i) => (
                   <tr key={c.name + i} style={{ borderBottom: '1px solid var(--border)' }}>
                     <td style={{ padding: '10px 0', color: 'var(--muted)' }}>{i + 1}</td>
-                    <td style={{ padding: 8, fontWeight: 700 }}>{c.name}</td>
+                    <td style={{ padding: 8, fontWeight: 700, color: 'var(--text)' }}>{c.name}</td>
                     <td style={{ padding: 8, color: 'var(--muted)' }}>{c.phone || '—'}</td>
                     <td style={{ padding: 8, textAlign: 'right', fontWeight: 800, color: 'var(--danger)' }}>
                       {formatCurrency(c.pending)}
@@ -125,17 +129,19 @@ export default function Dashboard() {
       </div>
 
       <div className="card" style={{ padding: 16, maxWidth: 420 }}>
-        <h3 style={{ margin: '0 0 8px', fontSize: 15, fontWeight: 800 }}>Backup & Restore</h3>
+        <h3 style={{ margin: '0 0 8px', fontSize: 15, fontWeight: 800, color: 'var(--text)' }}>
+          💾 Backup & Restore
+        </h3>
         <p style={{ margin: '0 0 12px', fontSize: 12, color: 'var(--muted)', lineHeight: 1.45 }}>
           Data cloud pe save hoti hai. Backup extra safety ke liye.
         </p>
         <div style={{ display: 'grid', gap: 8 }}>
           <button className="btn btn-primary" onClick={handleBackup}>
-            Download Backup (JSON)
+            ⬇️ Download Backup (JSON)
           </button>
           <input ref={fileRef} type="file" accept=".json" style={{ display: 'none' }} onChange={handleRestore} />
           <button className="btn btn-ghost" onClick={() => fileRef.current?.click()}>
-            Restore from Backup
+            ⬆️ Restore from Backup
           </button>
         </div>
       </div>

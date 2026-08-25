@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useReducer, useCallback, useState } from 'react'
+import { createContext, useContext, useEffect, useReducer, useCallback, useRef } from 'react'
 import {
   collection,
   query,
@@ -22,8 +22,8 @@ const initialState = {
   sortBy: 'name',
   sortDir: 'asc',
   filter: 'all',
-  theme: 'light',
-  view: 'ledger',
+  theme: loadTheme() || 'light',
+  view: 'dashboard',
   business: { name: 'Digital Khata', phone: '', address: '', currency: 'PKR' },
   branding: {
     appName: 'Digital Khata',
@@ -44,7 +44,8 @@ function reducer(state, action) {
         business: action.payload.business || state.business,
         branding: action.payload.branding || state.branding,
         loaded: true,
-        selectedId: action.payload.keepSelected ? state.selectedId : null,
+        selectedId: action.payload.keepSelected ? state.selectedId : state.selectedId,
+        view: state.view || 'dashboard',
       }
     case 'SELECT':
       return { ...state, selectedId: action.payload, view: 'ledger' }
@@ -72,6 +73,7 @@ function reducer(state, action) {
         ...state,
         customers: [...state.customers, customer],
         selectedId: customer.id,
+        view: 'ledger',
         toast: { type: 'success', message: 'Customer Added Successfully' },
       }
     }
@@ -207,7 +209,6 @@ async function resolveBrandingAndBusiness(profile) {
         publisherName: s.publisherName || '',
         publisherRemarks: s.publisherRemarks || '',
       }
-      // All users see admin app name as shop title (synced)
       business = {
         name: appName,
         phone: s.businessPhone || s.contactWhatsApp || '',
@@ -217,7 +218,6 @@ async function resolveBrandingAndBusiness(profile) {
     }
   } catch (_) {}
 
-  // Optional: user shop name only if admin left app name empty (rare)
   if (profile?.businessName && branding.appName === 'Digital Khata') {
     business = { ...business, name: profile.businessName }
   }
@@ -229,15 +229,24 @@ export function AppProvider({ children }) {
   const [state, dispatch] = useReducer(reducer, initialState)
   const { profile } = useAuth()
   const uid = profile?.id
-  const [tick, setTick] = useState(0)
+  const customersRef = useRef(state.customers)
+  customersRef.current = state.customers
+  const loadingRef = useRef(false)
+
+  // Theme immediately (no wait for cloud)
+  useEffect(() => {
+    document.documentElement.classList.toggle('dark', state.theme === 'dark')
+  }, [state.theme])
 
   const loadCloud = useCallback(
     async (opts = {}) => {
-      if (!uid) return
+      if (!uid || loadingRef.current) return
+      loadingRef.current = true
       try {
-        const { branding, business } = await resolveBrandingAndBusiness(profile)
-        const q = query(collection(db, 'customers'), where('userId', '==', uid))
-        const snap = await getDocs(q)
+        const [brandBiz, snap] = await Promise.all([
+          resolveBrandingAndBusiness(profile),
+          getDocs(query(collection(db, 'customers'), where('userId', '==', uid))),
+        ])
         const customers = snap.docs.map((d) => ({
           id: d.id,
           ...d.data(),
@@ -248,9 +257,9 @@ export function AppProvider({ children }) {
           payload: {
             customers,
             theme: loadTheme(),
-            business,
-            branding,
-            keepSelected: !!opts.keepSelected,
+            business: brandBiz.business,
+            branding: brandBiz.branding,
+            keepSelected: true,
           },
         })
         if (opts.toast) {
@@ -258,44 +267,41 @@ export function AppProvider({ children }) {
         }
       } catch (e) {
         console.error(e)
-        const { branding, business } = await resolveBrandingAndBusiness(profile)
+        const brandBiz = await resolveBrandingAndBusiness(profile).catch(() => ({
+          branding: state.branding,
+          business: state.business,
+        }))
         dispatch({
           type: 'INIT',
           payload: {
-            customers: state.customers,
+            customers: customersRef.current,
             theme: loadTheme(),
-            business,
-            branding,
+            business: brandBiz.business,
+            branding: brandBiz.branding,
             keepSelected: true,
           },
         })
-        dispatch({
-          type: 'TOAST',
-          payload: { type: 'danger', message: 'Could not load cloud data. Check connection.' },
-        })
+        if (opts.toast !== false) {
+          dispatch({
+            type: 'TOAST',
+            payload: { type: 'danger', message: 'Could not load cloud data. Check connection.' },
+          })
+        }
+      } finally {
+        loadingRef.current = false
       }
     },
     [uid, profile]
   )
 
+  // Load once when user ready — no auto-reload on every tab focus (was slow)
   useEffect(() => {
     if (!uid) return
-    loadCloud()
-  }, [uid, tick])
-
-  useEffect(() => {
-    const onVis = () => {
-      if (document.visibilityState === 'visible' && uid) setTick((t) => t + 1)
-    }
-    document.addEventListener('visibilitychange', onVis)
-    return () => document.removeEventListener('visibilitychange', onVis)
+    loadCloud({ toast: false })
   }, [uid])
 
   useEffect(() => {
-    if (state.loaded) {
-      saveTheme(state.theme)
-      document.documentElement.classList.toggle('dark', state.theme === 'dark')
-    }
+    if (state.loaded) saveTheme(state.theme)
   }, [state.theme, state.loaded])
 
   useEffect(() => {
@@ -323,7 +329,7 @@ export function AppProvider({ children }) {
   )
 
   const reload = useCallback(() => {
-    loadCloud({ keepSelected: true, toast: true })
+    loadCloud({ toast: true })
   }, [loadCloud])
 
   const appDispatch = useCallback(
@@ -344,6 +350,8 @@ export function AppProvider({ children }) {
         return
       }
 
+      const list = customersRef.current
+
       try {
         if (action.type === 'ADD_CUSTOMER') {
           const id = generateId()
@@ -359,35 +367,35 @@ export function AppProvider({ children }) {
             createdAt: new Date().toISOString(),
             updatedAt: new Date().toISOString(),
           }
-          await persistCustomer(customer)
           dispatch({ type: 'ADD_CUSTOMER_LOCAL', payload: customer })
+          await persistCustomer(customer)
           return
         }
 
         if (action.type === 'UPDATE_CUSTOMER') {
-          const cur = state.customers.find((c) => c.id === action.payload.id)
+          const cur = list.find((c) => c.id === action.payload.id)
           if (!cur) return
           const updated = {
             ...cur,
             ...action.payload.updates,
             updatedAt: new Date().toISOString(),
           }
-          await persistCustomer(updated)
           dispatch({
             type: 'UPDATE_CUSTOMER_LOCAL',
             payload: { id: action.payload.id, updates: updated },
           })
+          await persistCustomer(updated)
           return
         }
 
         if (action.type === 'DELETE_CUSTOMER') {
-          await removeCustomerDoc(action.payload)
           dispatch({ type: 'DELETE_CUSTOMER_LOCAL', payload: action.payload })
+          await removeCustomerDoc(action.payload)
           return
         }
 
         if (action.type === 'ADD_TRANSACTION') {
-          const cur = state.customers.find((c) => c.id === action.payload.customerId)
+          const cur = list.find((c) => c.id === action.payload.customerId)
           if (!cur) return
           const tx = { id: generateId(), ...action.payload.tx }
           const updated = {
@@ -395,16 +403,16 @@ export function AppProvider({ children }) {
             transactions: [...(cur.transactions || []), tx],
             updatedAt: new Date().toISOString(),
           }
-          await persistCustomer(updated)
           dispatch({
             type: 'ADD_TRANSACTION_LOCAL',
             payload: { customerId: action.payload.customerId, tx },
           })
+          await persistCustomer(updated)
           return
         }
 
         if (action.type === 'UPDATE_TRANSACTION') {
-          const cur = state.customers.find((c) => c.id === action.payload.customerId)
+          const cur = list.find((c) => c.id === action.payload.customerId)
           if (!cur) return
           const updated = {
             ...cur,
@@ -413,34 +421,34 @@ export function AppProvider({ children }) {
             ),
             updatedAt: new Date().toISOString(),
           }
-          await persistCustomer(updated)
           dispatch({
             type: 'UPDATE_TRANSACTION_LOCAL',
             payload: action.payload,
           })
+          await persistCustomer(updated)
           return
         }
 
         if (action.type === 'DELETE_TRANSACTION') {
-          const cur = state.customers.find((c) => c.id === action.payload.customerId)
+          const cur = list.find((c) => c.id === action.payload.customerId)
           if (!cur) return
           const updated = {
             ...cur,
             transactions: (cur.transactions || []).filter((t) => t.id !== action.payload.txId),
             updatedAt: new Date().toISOString(),
           }
-          await persistCustomer(updated)
           dispatch({
             type: 'DELETE_TRANSACTION_LOCAL',
             payload: action.payload,
           })
+          await persistCustomer(updated)
           return
         }
 
         if (action.type === 'IMPORT_CUSTOMERS') {
-          const list = action.payload || []
-          const merged = [...state.customers]
-          for (const inc of list) {
+          const incoming = action.payload || []
+          const merged = [...list]
+          for (const inc of incoming) {
             const id = inc.id || generateId()
             const customer = {
               ...inc,
@@ -460,12 +468,12 @@ export function AppProvider({ children }) {
         }
 
         if (action.type === 'RESTORE_ALL') {
-          const list = action.payload.customers || []
-          for (const c of state.customers) {
+          const incoming = action.payload.customers || []
+          for (const c of list) {
             await removeCustomerDoc(c.id)
           }
           const next = []
-          for (const inc of list) {
+          for (const inc of incoming) {
             const id = generateId()
             const customer = {
               ...inc,
@@ -486,7 +494,7 @@ export function AppProvider({ children }) {
         }
 
         if (action.type === 'CLEAR_ALL') {
-          for (const c of state.customers) {
+          for (const c of list) {
             await removeCustomerDoc(c.id)
           }
           dispatch({ type: 'CLEAR_ALL_LOCAL' })
@@ -505,7 +513,7 @@ export function AppProvider({ children }) {
         })
       }
     },
-    [uid, state.customers, persistCustomer, removeCustomerDoc]
+    [uid, persistCustomer, removeCustomerDoc]
   )
 
   const toggleTheme = useCallback(() => {
