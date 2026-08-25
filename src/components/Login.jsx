@@ -1,7 +1,18 @@
 import { useState, useEffect } from 'react'
 import { useAuth } from '../context/AuthContext'
-import { collection, addDoc, getDoc, doc, serverTimestamp } from 'firebase/firestore'
-import { db } from '../firebase'
+import {
+  collection,
+  addDoc,
+  getDoc,
+  getDocs,
+  query,
+  where,
+  doc,
+  serverTimestamp,
+  limit,
+} from 'firebase/firestore'
+import { sendPasswordResetEmail } from 'firebase/auth'
+import { db, auth } from '../firebase'
 
 function appInitials(name) {
   const t = (name || 'App').trim()
@@ -55,14 +66,41 @@ export default function Login() {
     }
   }
 
+  const checkApproved = async (em) => {
+    const q = query(
+      collection(db, 'passwordResetRequests'),
+      where('email', '==', em),
+      limit(20)
+    )
+    const snap = await getDocs(q)
+    const list = snap.docs.map((d) => ({ id: d.id, ...d.data() }))
+    return list.some((r) => r.status === 'approved')
+  }
+
   const handleForgot = async (e) => {
     e.preventDefault()
     setBusy(true)
     setAuthError('')
     setInfo('')
+    const em = email.trim().toLowerCase()
+    if (!em) {
+      setBusy(false)
+      return
+    }
     try {
+      const approved = await checkApproved(em)
+      if (approved) {
+        await sendPasswordResetEmail(auth, em)
+        setMode('approved')
+        setInfo(
+          'Admin ne request approve kar di hai. Aapke email par password reset link bhej di gayi hai. Link khol kar naya password set karein.'
+        )
+        setBusy(false)
+        return
+      }
+
       await addDoc(collection(db, 'passwordResetRequests'), {
-        email: email.trim().toLowerCase(),
+        email: em,
         status: 'pending',
         createdAt: serverTimestamp(),
       })
@@ -71,9 +109,33 @@ export default function Login() {
       const msg = (err?.message || '').toLowerCase()
       if (msg.includes('offline')) {
         setAuthError('Cannot reach database. Check internet / Firestore setup.')
+      } else if (err?.code === 'auth/user-not-found') {
+        setAuthError('Is email ka koi account nahi mila.')
+      } else if (err?.code === 'auth/too-many-requests') {
+        setAuthError('Bohot requests. Thodi der baad try karein.')
       } else {
-        setAuthError('Could not submit request. Try again later.')
+        setAuthError(err.message || 'Could not submit request. Try again later.')
       }
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  const resendApprovedLink = async () => {
+    setBusy(true)
+    setAuthError('')
+    try {
+      const em = email.trim().toLowerCase()
+      const approved = await checkApproved(em)
+      if (!approved) {
+        setAuthError('Abhi approve nahi hui. Admin se contact karein.')
+        setBusy(false)
+        return
+      }
+      await sendPasswordResetEmail(auth, em)
+      setInfo('Reset link dubara email par bhej di gayi hai. Inbox / Spam check karein.')
+    } catch (err) {
+      setAuthError(err.message || 'Email bhejne mein masla.')
     } finally {
       setBusy(false)
     }
@@ -126,7 +188,11 @@ export default function Login() {
               {brand.appName}
             </h1>
             <p style={{ margin: '6px 0 0', fontSize: 13, color: '#64748b' }}>
-              {mode === 'login' ? 'Sign in to your account' : 'Password reset request'}
+              {mode === 'login'
+                ? 'Sign in to your account'
+                : mode === 'approved'
+                  ? 'Set new password via email'
+                  : 'Password reset request'}
             </p>
           </div>
 
@@ -203,24 +269,50 @@ export default function Login() {
             </>
           )}
 
-          <button
-            type="submit"
-            disabled={busy}
-            style={{
-              width: '100%',
-              padding: 12,
-              background: '#185FA5',
-              color: '#fff',
-              border: 'none',
-              borderRadius: 10,
-              fontWeight: 700,
-              fontSize: 15,
-              cursor: busy ? 'wait' : 'pointer',
-              fontFamily: 'inherit',
-            }}
-          >
-            {busy ? 'Please wait…' : mode === 'login' ? 'Login' : 'Send Request to Admin'}
-          </button>
+          {mode === 'approved' ? (
+            <button
+              type="button"
+              disabled={busy}
+              onClick={resendApprovedLink}
+              style={{
+                width: '100%',
+                padding: 12,
+                background: '#185FA5',
+                color: '#fff',
+                border: 'none',
+                borderRadius: 10,
+                fontWeight: 700,
+                fontSize: 15,
+                cursor: busy ? 'wait' : 'pointer',
+                fontFamily: 'inherit',
+              }}
+            >
+              {busy ? 'Please wait…' : 'Resend password reset email'}
+            </button>
+          ) : (
+            <button
+              type="submit"
+              disabled={busy}
+              style={{
+                width: '100%',
+                padding: 12,
+                background: '#185FA5',
+                color: '#fff',
+                border: 'none',
+                borderRadius: 10,
+                fontWeight: 700,
+                fontSize: 15,
+                cursor: busy ? 'wait' : 'pointer',
+                fontFamily: 'inherit',
+              }}
+            >
+              {busy
+                ? 'Please wait…'
+                : mode === 'login'
+                  ? 'Login'
+                  : 'Send Request to Admin'}
+            </button>
+          )}
 
           <button
             type="button"
@@ -244,8 +336,10 @@ export default function Login() {
             {mode === 'login' ? 'Forgot password?' : 'Back to Login'}
           </button>
 
-          <p style={{ margin: '16px 0 0', fontSize: 11, color: '#94a3b8', textAlign: 'center' }}>
+          <p style={{ margin: '16px 0 0', fontSize: 11, color: '#94a3b8', textAlign: 'center', lineHeight: 1.45 }}>
             Accounts are created by Admin only.
+            <br />
+            Reset: Admin approve ke baad email link se naya password set hoga.
           </p>
         </form>
       </div>
