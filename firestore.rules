@@ -1,0 +1,82 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    function userDoc() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
+    }
+
+    function isAdmin() {
+      return signedIn() && userDoc().role == 'super_admin';
+    }
+
+    function isActive() {
+      return signedIn() && userDoc().status == 'active';
+    }
+
+    function isOwner(userId) {
+      return signedIn() && request.auth.uid == userId;
+    }
+
+    // App branding / settings — public read
+    match /settings/{docId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    // Username → email map (login without revealing full user list)
+    match /usernames/{username} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    // User profiles
+    match /users/{userId} {
+      allow read: if isAdmin() || isOwner(userId);
+      allow create: if isAdmin();
+      allow update: if isAdmin() || (isOwner(userId) && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['role', 'permissions', 'status']));
+      allow delete: if isAdmin();
+    }
+
+    // Password reset requests — guests can CREATE only
+    match /passwordResetRequests/{id} {
+      allow create: if request.resource.data.keys().hasAll(['email', 'status', 'createdAt'])
+        && request.resource.data.status == 'pending'
+        && request.resource.data.email is string
+        && request.resource.data.email.size() > 3;
+
+      // Anyone can read own email's status for "approved" check (limited)
+      // Safer: allow list/get for pending flow — restrict to admin for full list
+      allow read: if isAdmin()
+        || (request.query.limit <= 20);
+
+      allow update: if isAdmin();
+      allow delete: if isAdmin();
+    }
+
+    // Login audit — write on login/logout, admin read
+    match /loginHistory/{id} {
+      allow create: if true;
+      allow read: if isAdmin();
+      allow update, delete: if isAdmin();
+    }
+
+    // Customers — owner only
+    match /customers/{id} {
+      allow read: if isActive() && resource.data.userId == request.auth.uid;
+      allow create: if isActive() && request.resource.data.userId == request.auth.uid;
+      allow update: if isActive() && resource.data.userId == request.auth.uid
+        && request.resource.data.userId == resource.data.userId;
+      allow delete: if isActive() && resource.data.userId == request.auth.uid;
+    }
+
+    // Optional business profile per user
+    match /business/{userId} {
+      allow read, write: if isOwner(userId) || isAdmin();
+    }
+  }
+}
