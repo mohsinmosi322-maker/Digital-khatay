@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { useAuth } from '../context/AuthContext'
+import { useAuth, resolveLoginEmail } from '../context/AuthContext'
 import {
   collection,
   addDoc,
@@ -25,7 +25,7 @@ function appInitials(name) {
 
 export default function Login() {
   const { login, authError, setAuthError } = useAuth()
-  const [email, setEmail] = useState('')
+  const [loginId, setLoginId] = useState('')
   const [password, setPassword] = useState('')
   const [busy, setBusy] = useState(false)
   const [mode, setMode] = useState('login')
@@ -60,7 +60,7 @@ export default function Login() {
     setInfo('')
     setAuthError('')
     try {
-      await login(email, password)
+      await login(loginId, password)
     } finally {
       setBusy(false)
     }
@@ -82,18 +82,25 @@ export default function Login() {
     setBusy(true)
     setAuthError('')
     setInfo('')
-    const em = email.trim().toLowerCase()
-    if (!em) {
+    const raw = loginId.trim()
+    if (!raw) {
       setBusy(false)
       return
     }
     try {
+      let em = raw.includes('@') ? raw.toLowerCase() : await resolveLoginEmail(raw)
+      if (!em) {
+        setAuthError('Username/email not found.')
+        setBusy(false)
+        return
+      }
+
       const approved = await checkApproved(em)
       if (approved) {
         await sendPasswordResetEmail(auth, em)
         setMode('approved')
         setInfo(
-          'Admin ne request approve kar di hai. Aapke email par password reset link bhej di gayi hai. Link khol kar naya password set karein.'
+          'Admin ne request approve kar di hai. Email par password reset link bhej di gayi hai. Link se naya password set karein.'
         )
         setBusy(false)
         return
@@ -101,6 +108,7 @@ export default function Login() {
 
       await addDoc(collection(db, 'passwordResetRequests'), {
         email: em,
+        loginId: raw,
         status: 'pending',
         createdAt: serverTimestamp(),
       })
@@ -110,7 +118,7 @@ export default function Login() {
       if (msg.includes('offline')) {
         setAuthError('Cannot reach database. Check internet / Firestore setup.')
       } else if (err?.code === 'auth/user-not-found') {
-        setAuthError('Is email ka koi account nahi mila.')
+        setAuthError('Is account ka koi record nahi mila.')
       } else if (err?.code === 'auth/too-many-requests') {
         setAuthError('Bohot requests. Thodi der baad try karein.')
       } else {
@@ -125,7 +133,13 @@ export default function Login() {
     setBusy(true)
     setAuthError('')
     try {
-      const em = email.trim().toLowerCase()
+      const raw = loginId.trim()
+      let em = raw.includes('@') ? raw.toLowerCase() : await resolveLoginEmail(raw)
+      if (!em) {
+        setAuthError('Username/email not found.')
+        setBusy(false)
+        return
+      }
       const approved = await checkApproved(em)
       if (!approved) {
         setAuthError('Abhi approve nahi hui. Admin se contact karein.')
@@ -189,7 +203,7 @@ export default function Login() {
             </h1>
             <p style={{ margin: '6px 0 0', fontSize: 13, color: '#64748b' }}>
               {mode === 'login'
-                ? 'Sign in to your account'
+                ? 'Sign in with username or email'
                 : mode === 'approved'
                   ? 'Set new password via email'
                   : 'Password reset request'}
@@ -229,12 +243,16 @@ export default function Login() {
             </div>
           )}
 
-          <label style={{ fontSize: 12, fontWeight: 700, color: '#64748b' }}>Email</label>
+          <label style={{ fontSize: 12, fontWeight: 700, color: '#64748b' }}>
+            Username or Email
+          </label>
           <input
-            type="email"
+            type="text"
             required
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
+            autoComplete="username"
+            value={loginId}
+            onChange={(e) => setLoginId(e.target.value)}
+            placeholder="username ya email"
             style={{
               width: '100%',
               padding: 12,
@@ -253,6 +271,7 @@ export default function Login() {
               <input
                 type="password"
                 required
+                autoComplete="current-password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 style={{
@@ -337,9 +356,9 @@ export default function Login() {
           </button>
 
           <p style={{ margin: '16px 0 0', fontSize: 11, color: '#94a3b8', textAlign: 'center', lineHeight: 1.45 }}>
-            Accounts are created by Admin only.
+            Login: <strong>username</strong> ya <strong>email</strong> + password
             <br />
-            Reset: Admin approve ke baad email link se naya password set hoga.
+            Accounts Admin banata hai.
           </p>
         </form>
       </div>

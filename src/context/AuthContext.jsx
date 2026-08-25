@@ -7,32 +7,24 @@ import {
 import {
   doc,
   getDoc,
-  getDocFromServer,
   setDoc,
   addDoc,
   collection,
   serverTimestamp,
 } from 'firebase/firestore'
-import { auth, db, ensureFirestoreDb } from '../firebase'
+import { auth, db } from '../firebase'
 
 const AuthContext = createContext(null)
 
 function friendlyError(e) {
   const code = e?.code || ''
-  const msg = (e?.message || '').toLowerCase()
-  if (code === 'unavailable' || msg.includes('offline') || msg.includes('client is offline')) {
-    return 'Cannot reach database (offline). Check internet, DevTools Network Offline OFF, and that Firestore has data in this project.'
-  }
-  if (code === 'permission-denied') {
-    return 'Permission denied. Check Firestore rules and users/{UID} document.'
-  }
   if (
     code === 'auth/invalid-credential' ||
     code === 'auth/wrong-password' ||
     code === 'auth/user-not-found' ||
     code === 'auth/invalid-email'
   ) {
-    return 'Invalid email or password.'
+    return 'Invalid username/email or password.'
   }
   if (code === 'auth/too-many-requests') {
     return 'Too many attempts. Try again later.'
@@ -41,15 +33,25 @@ function friendlyError(e) {
 }
 
 async function loadUserProfile(uid) {
-  // ensure we are on a reachable DB instance
-  const database = await ensureFirestoreDb()
-  const ref = doc(database, 'users', uid)
-  // prefer server so we don't get stuck on empty offline cache
+  return getDoc(doc(db, 'users', uid))
+}
+
+/** Resolve login id (username or email) → auth email */
+export async function resolveLoginEmail(loginId) {
+  const raw = (loginId || '').trim()
+  if (!raw) return null
+  if (raw.includes('@')) return raw.toLowerCase()
+
+  const key = raw.toLowerCase()
+  // Preferred: usernames/{username} map
   try {
-    return await getDocFromServer(ref)
-  } catch {
-    return await getDoc(ref)
-  }
+    const uSnap = await getDoc(doc(db, 'usernames', key))
+    if (uSnap.exists() && uSnap.data()?.email) {
+      return String(uSnap.data().email).toLowerCase()
+    }
+  } catch (_) {}
+
+  return null
 }
 
 export function AuthProvider({ children }) {
@@ -61,57 +63,61 @@ export function AuthProvider({ children }) {
   useEffect(() => {
     const unsub = onAuthStateChanged(auth, async (fbUser) => {
       setUser(fbUser)
-      if (!fbUser) {
-        setProfile(null)
-        setLoading(false)
-        return
-      }
-      try {
-        const snap = await loadUserProfile(fbUser.uid)
-        if (!snap.exists()) {
-          await signOut(auth)
-          setProfile(null)
-          setAuthError('Account not found. Create Firestore users/{UID} with role and status.')
-          setLoading(false)
-          return
-        }
-        const data = snap.data()
-        if (data.status === 'disabled') {
-          await signOut(auth)
-          setProfile(null)
-          setAuthError('Your account has been disabled. Please contact administrator.')
-          setLoading(false)
-          return
-        }
-        setProfile({ id: fbUser.uid, ...data })
+      if (fbUser) {
         try {
-          await setDoc(
-            doc(db, 'users', fbUser.uid),
-            { lastLoginAt: serverTimestamp() },
-            { merge: true }
-          )
-        } catch (_) {}
-      } catch (e) {
-        console.error(e)
+          const snap = await loadUserProfile(fbUser.uid)
+          if (snap.exists()) {
+            const data = snap.data()
+            if (data.status === 'disabled') {
+              await signOut(auth)
+              setProfile(null)
+              setAuthError('Your account has been disabled. Please contact administrator.')
+              setLoading(false)
+              return
+            }
+            setProfile({ id: fbUser.uid, ...data })
+            try {
+              await setDoc(
+                doc(db, 'users', fbUser.uid),
+                { lastLoginAt: serverTimestamp() },
+                { merge: true }
+              )
+            } catch (_) {}
+          } else {
+            setProfile(null)
+          }
+        } catch (e) {
+          console.error(e)
+          setProfile(null)
+        }
+      } else {
         setProfile(null)
-        setAuthError(friendlyError(e))
-        try {
-          await signOut(auth)
-        } catch (_) {}
       }
       setLoading(false)
     })
     return () => unsub()
   }, [])
 
-  const login = async (email, password) => {
+  const login = async (loginId, password) => {
     setAuthError('')
     try {
-      const cred = await signInWithEmailAndPassword(auth, email.trim(), password)
+      let email = (loginId || '').trim()
+      if (!email.includes('@')) {
+        const resolved = await resolveLoginEmail(email)
+        if (!resolved) {
+          setAuthError('Username not found. Use correct username or email.')
+          return false
+        }
+        email = resolved
+      } else {
+        email = email.toLowerCase()
+      }
+
+      const cred = await signInWithEmailAndPassword(auth, email, password)
       const snap = await loadUserProfile(cred.user.uid)
       if (!snap.exists()) {
         await signOut(auth)
-        setAuthError('Account not found. Create Firestore users/{UID} (document ID = Auth UID).')
+        setAuthError('Account not found. Contact admin.')
         return false
       }
       const data = snap.data()
@@ -123,7 +129,8 @@ export function AuthProvider({ children }) {
       setProfile({ id: cred.user.uid, ...data })
       try {
         await addDoc(collection(db, 'loginHistory'), {
-          email: email.trim(),
+          email,
+          username: data.username || '',
           userId: cred.user.uid,
           status: 'success',
           at: serverTimestamp(),
