@@ -16,6 +16,7 @@ import {
 } from 'firebase/firestore'
 import { useAuth } from '../context/AuthContext'
 import { db } from '../firebase'
+import { approvePasswordReset, rejectPasswordReset } from '../utils/passwordResetAdmin'
 
 const PERMS = [
   { key: 'LOGIN', label: 'Login' },
@@ -72,15 +73,6 @@ const input = {
   boxSizing: 'border-box',
 }
 
-const ICONS = {
-  dashboard: '📊',
-  users: '👥',
-  create: '➕',
-  resets: '🔑',
-  logins: '🕐',
-  settings: '⚙️',
-}
-
 export default function AdminPanel() {
   const { profile, logout } = useAuth()
   const [tab, setTab] = useState('dashboard')
@@ -108,7 +100,6 @@ export default function AdminPanel() {
     businessName: '',
   })
   const [createPerms, setCreatePerms] = useState(defaultUserPerms())
-  const [logoutAsk, setLogoutAsk] = useState(false)
 
   const flash = (t, isErr = false) => {
     if (isErr) setErr(t)
@@ -116,7 +107,7 @@ export default function AdminPanel() {
     setTimeout(() => {
       setMsg('')
       setErr('')
-    }, 3500)
+    }, 4000)
   }
 
   const loadAll = async () => {
@@ -137,8 +128,6 @@ export default function AdminPanel() {
           ...s,
           ...d,
           appName: d.appName || d.businessName || s.appName,
-          publisherName: d.publisherName || '',
-          publisherRemarks: d.publisherRemarks || '',
         }))
       }
     } catch (e) {
@@ -254,14 +243,21 @@ export default function AdminPanel() {
     }
   }
 
-  const resolveReset = async (r, status) => {
+  const onApproveReset = async (r) => {
     try {
-      await updateDoc(doc(db, 'passwordResetRequests', r.id), {
-        status,
-        resolvedAt: serverTimestamp(),
-        resolvedBy: profile?.email || '',
-      })
-      flash(`Request marked ${status}`)
+      await approvePasswordReset(r, profile?.email, users)
+      flash('Approved — reset email sent. User can set new password from email link.')
+      await loadAll()
+    } catch (e) {
+      console.error(e)
+      flash(e.message || 'Approve failed', true)
+    }
+  }
+
+  const onRejectReset = async (r) => {
+    try {
+      await rejectPasswordReset(r, profile?.email)
+      flash('Request rejected')
       await loadAll()
     } catch (e) {
       flash(e.message, true)
@@ -283,7 +279,7 @@ export default function AdminPanel() {
         },
         { merge: true }
       )
-      flash('App settings saved')
+      flash('Settings saved')
     } catch (e) {
       flash(e.message, true)
     }
@@ -311,42 +307,25 @@ export default function AdminPanel() {
   const appTitle = settings.appName || 'Digital Khata'
 
   return (
-    <div style={{ minHeight: '100vh', background: 'linear-gradient(180deg, #f0f5fb 0%, #f1f5f9 40%)', display: 'flex', flexDirection: 'column' }}>
+    <div style={{ minHeight: '100vh', background: '#f1f5f9' }}>
       <header
         style={{
-          background: 'linear-gradient(135deg, #0f4a85 0%, #185FA5 55%, #2563eb 100%)',
+          background: 'linear-gradient(135deg, #0f4a85, #185FA5)',
           color: '#fff',
-          padding: '16px 22px',
+          padding: '14px 20px',
           display: 'flex',
           alignItems: 'center',
-          gap: 14,
+          gap: 16,
           flexWrap: 'wrap',
-          boxShadow: '0 8px 24px rgba(15,74,133,0.25)',
         }}
       >
-        <div
-          style={{
-            width: 42,
-            height: 42,
-            borderRadius: 12,
-            background: 'rgba(255,255,255,0.18)',
-            display: 'grid',
-            placeItems: 'center',
-            fontWeight: 900,
-            fontSize: 16,
-          }}
-        >
-          DK
-        </div>
-        <div>
-          <div style={{ fontWeight: 800, fontSize: 18 }}>{appTitle} · Admin</div>
-          <div style={{ fontSize: 12, opacity: 0.85 }}>{profile?.email}</div>
-        </div>
+        <div style={{ fontWeight: 800, fontSize: 18 }}>{appTitle} · Admin</div>
+        <div style={{ fontSize: 13, opacity: 0.85 }}>{profile?.email}</div>
         <div style={{ marginLeft: 'auto', display: 'flex', gap: 8, flexWrap: 'wrap' }}>
           <button type="button" onClick={loadAll} style={btn('#3B82F6')}>
-            ↻ Refresh
+            Refresh
           </button>
-          <button type="button" onClick={() => setLogoutAsk(true)} style={btn('#d93b3a')}>
+          <button type="button" onClick={logout} style={btn('#d93b3a')}>
             Logout
           </button>
         </div>
@@ -360,9 +339,6 @@ export default function AdminPanel() {
           flexWrap: 'wrap',
           background: '#fff',
           borderBottom: '1px solid #e2e8f0',
-          position: 'sticky',
-          top: 0,
-          zIndex: 10,
         }}
       >
         {tabs.map(([id, label]) => (
@@ -371,20 +347,17 @@ export default function AdminPanel() {
             type="button"
             onClick={() => setTab(id)}
             style={{
-              ...btn(tab === id ? '#185FA5' : '#f1f5f9'),
+              ...btn(tab === id ? '#185FA5' : '#e2e8f0'),
               color: tab === id ? '#fff' : '#334155',
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: 6,
             }}
           >
-            <span>{ICONS[id]}</span> {label}
+            {label}
             {id === 'resets' && stats.pendingResets > 0 ? ` (${stats.pendingResets})` : ''}
           </button>
         ))}
       </nav>
 
-      <main style={{ maxWidth: 1100, margin: '0 auto', padding: 16, width: '100%', flex: 1 }}>
+      <main style={{ maxWidth: 1100, margin: '0 auto', padding: 16 }}>
         {(msg || err) && (
           <div
             style={{
@@ -402,7 +375,7 @@ export default function AdminPanel() {
         )}
 
         {tab === 'dashboard' && (
-          <div className="anim-fade">
+          <div>
             <div
               style={{
                 display: 'grid',
@@ -412,41 +385,28 @@ export default function AdminPanel() {
               }}
             >
               {[
-                ['Total Users', stats.total, '#185FA5', '👥'],
-                ['Active', stats.active, '#2f6b12', '✅'],
-                ['Disabled', stats.disabled, '#d93b3a', '🚫'],
-                ['Pending Resets', stats.pendingResets, '#b45309', '🔑'],
-              ].map(([label, val, color, icon]) => (
+                ['Total Users', stats.total, '#185FA5'],
+                ['Active', stats.active, '#2f6b12'],
+                ['Disabled', stats.disabled, '#d93b3a'],
+                ['Pending Resets', stats.pendingResets, '#b45309'],
+              ].map(([label, val, color]) => (
                 <div key={label} style={{ ...card, borderTop: `3px solid ${color}` }}>
-                  <div style={{ fontSize: 12, color: '#64748b', fontWeight: 700 }}>
-                    {icon} {label}
-                  </div>
+                  <div style={{ fontSize: 12, color: '#64748b', fontWeight: 700 }}>{label}</div>
                   <div style={{ fontSize: 28, fontWeight: 800, color, marginTop: 4 }}>{val}</div>
                 </div>
               ))}
             </div>
-            <div style={{ ...card, marginBottom: 12 }}>
-              <div style={{ fontSize: 12, color: '#64748b', fontWeight: 700 }}>APP</div>
-              <div style={{ fontSize: 20, fontWeight: 800, marginTop: 4 }}>{appTitle}</div>
-              {(settings.publisherName || settings.publisherRemarks) && (
-                <div style={{ fontSize: 13, color: '#64748b', marginTop: 6, lineHeight: 1.45 }}>
-                  {settings.publisherName}
-                  {settings.publisherName && settings.publisherRemarks ? ' — ' : ''}
-                  {settings.publisherRemarks}
-                </div>
-              )}
-            </div>
             <div style={card}>
-              <h3 style={{ margin: '0 0 8px' }}>Privacy</h3>
+              <h3 style={{ margin: '0 0 8px' }}>Password reset</h3>
               <p style={{ margin: 0, fontSize: 13, color: '#64748b', lineHeight: 1.5 }}>
-                Admin Panel only manages users. User Khata data stays private.
+                Approve request → user ko Firebase email link jati hai → user khud naya password set karta hai.
               </p>
             </div>
           </div>
         )}
 
         {tab === 'users' && (
-          <div style={card} className="anim-fade">
+          <div style={card}>
             <div style={{ display: 'flex', gap: 10, marginBottom: 14, flexWrap: 'wrap' }}>
               <input
                 style={{ ...input, maxWidth: 280 }}
@@ -536,11 +496,8 @@ export default function AdminPanel() {
         )}
 
         {tab === 'create' && (
-          <form onSubmit={createUser} style={{ ...card, maxWidth: 520 }} className="anim-fade">
-            <h3 style={{ margin: '0 0 14px' }}>➕ Create User</h3>
-            <p style={{ margin: '0 0 14px', fontSize: 12, color: '#64748b' }}>
-              User login only after create. Share temporary password securely.
-            </p>
+          <form onSubmit={createUser} style={{ ...card, maxWidth: 520 }}>
+            <h3 style={{ margin: '0 0 14px' }}>Create User</h3>
             {[
               ['fullName', 'Full Name'],
               ['email', 'Email'],
@@ -582,10 +539,10 @@ export default function AdminPanel() {
         )}
 
         {tab === 'resets' && (
-          <div style={card} className="anim-fade">
-            <h3 style={{ margin: '0 0 12px' }}>🔑 Password Reset Requests</h3>
-            <p style={{ fontSize: 12, color: '#64748b', marginTop: 0 }}>
-              Contact user on WhatsApp, then reset password in Firebase Authentication → Users.
+          <div style={card}>
+            <h3 style={{ margin: '0 0 8px' }}>Password Reset Requests</h3>
+            <p style={{ fontSize: 12, color: '#64748b', marginTop: 0, marginBottom: 12 }}>
+              <strong>Approve</strong> = user ko email reset link jati hai → user khud naya password set karega.
             </p>
             <div style={{ overflowX: 'auto' }}>
               <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
@@ -607,13 +564,18 @@ export default function AdminPanel() {
                       <td style={{ padding: '10px 8px' }}>
                         {r.status === 'pending' && (
                           <div style={{ display: 'flex', gap: 6 }}>
-                            <button type="button" style={btn('#2f6b12')} onClick={() => resolveReset(r, 'resolved')}>
-                              Done
+                            <button type="button" style={btn('#2f6b12')} onClick={() => onApproveReset(r)}>
+                              Approve
                             </button>
-                            <button type="button" style={btn('#94a3b8')} onClick={() => resolveReset(r, 'rejected')}>
+                            <button type="button" style={btn('#94a3b8')} onClick={() => onRejectReset(r)}>
                               Reject
                             </button>
                           </div>
+                        )}
+                        {r.status === 'approved' && (
+                          <button type="button" style={btn('#185FA5')} onClick={() => onApproveReset(r)}>
+                            Resend email
+                          </button>
                         )}
                       </td>
                     </tr>
@@ -632,8 +594,8 @@ export default function AdminPanel() {
         )}
 
         {tab === 'logins' && (
-          <div style={card} className="anim-fade">
-            <h3 style={{ margin: '0 0 12px' }}>🕐 Login History</h3>
+          <div style={card}>
+            <h3 style={{ margin: '0 0 12px' }}>Login History</h3>
             <div style={{ overflowX: 'auto' }}>
               <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
                 <thead>
@@ -649,21 +611,7 @@ export default function AdminPanel() {
                   {logins.map((l) => (
                     <tr key={l.id} style={{ borderTop: '1px solid #e2e8f0' }}>
                       <td style={{ padding: '10px 8px' }}>{l.email || '—'}</td>
-                      <td style={{ padding: '10px 8px' }}>
-                        <span
-                          style={{
-                            color:
-                              l.status === 'success'
-                                ? '#166534'
-                                : l.status === 'logout'
-                                  ? '#64748b'
-                                  : '#991b1b',
-                            fontWeight: 700,
-                          }}
-                        >
-                          {l.status}
-                        </span>
-                      </td>
+                      <td style={{ padding: '10px 8px' }}>{l.status}</td>
                       <td style={{ padding: '10px 8px' }}>{fmtTime(l.at)}</td>
                     </tr>
                   ))}
@@ -681,41 +629,33 @@ export default function AdminPanel() {
         )}
 
         {tab === 'settings' && (
-          <div style={{ ...card, maxWidth: 560 }} className="anim-fade">
-            <h3 style={{ margin: '0 0 6px' }}>⚙️ App Branding</h3>
-            <p style={{ margin: '0 0 14px', fontSize: 12, color: '#64748b' }}>
-              App name & publisher details (footer on login / app screens).
-            </p>
+          <div style={{ ...card, maxWidth: 560 }}>
+            <h3 style={{ margin: '0 0 14px' }}>App Settings</h3>
             <div style={{ marginBottom: 10 }}>
               <label style={{ fontSize: 12, fontWeight: 700, color: '#64748b' }}>App Name</label>
               <input
                 style={{ ...input, marginTop: 4 }}
                 value={settings.appName || ''}
                 onChange={(e) => setSettings({ ...settings, appName: e.target.value })}
-                placeholder="Digital Khata"
               />
             </div>
             <div style={{ marginBottom: 10 }}>
-              <label style={{ fontSize: 12, fontWeight: 700, color: '#64748b' }}>Publisher / Company</label>
+              <label style={{ fontSize: 12, fontWeight: 700, color: '#64748b' }}>Publisher</label>
               <input
                 style={{ ...input, marginTop: 4 }}
                 value={settings.publisherName || ''}
                 onChange={(e) => setSettings({ ...settings, publisherName: e.target.value })}
-                placeholder="Your company name"
               />
             </div>
-            <div style={{ marginBottom: 18 }}>
-              <label style={{ fontSize: 12, fontWeight: 700, color: '#64748b' }}>Remarks / Footer text</label>
+            <div style={{ marginBottom: 10 }}>
+              <label style={{ fontSize: 12, fontWeight: 700, color: '#64748b' }}>Remarks / Footer</label>
               <textarea
-                rows={3}
+                rows={2}
                 style={{ ...input, marginTop: 4, resize: 'vertical' }}
                 value={settings.publisherRemarks || ''}
                 onChange={(e) => setSettings({ ...settings, publisherRemarks: e.target.value })}
-                placeholder="e.g. Developed by … · Support: 03xx…"
               />
             </div>
-
-            <h3 style={{ margin: '0 0 14px', borderTop: '1px solid #e2e8f0', paddingTop: 16 }}>App Settings</h3>
             <div style={{ marginBottom: 10 }}>
               <label style={{ fontSize: 12, fontWeight: 700, color: '#64748b' }}>Contact WhatsApp</label>
               <input
@@ -724,17 +664,9 @@ export default function AdminPanel() {
                 onChange={(e) => setSettings({ ...settings, contactWhatsApp: e.target.value })}
               />
             </div>
-            <div style={{ marginBottom: 10 }}>
-              <label style={{ fontSize: 12, fontWeight: 700, color: '#64748b' }}>Super Admin Email</label>
-              <input
-                style={{ ...input, marginTop: 4 }}
-                value={settings.superAdminEmail || ''}
-                onChange={(e) => setSettings({ ...settings, superAdminEmail: e.target.value })}
-              />
-            </div>
             <div style={{ marginBottom: 14 }}>
               <label style={{ fontSize: 12, fontWeight: 700, color: '#64748b' }}>
-                Forgot-password message
+                Forgot-password message (before approve)
               </label>
               <textarea
                 rows={3}
@@ -749,26 +681,6 @@ export default function AdminPanel() {
           </div>
         )}
       </main>
-
-      <footer
-        style={{
-          textAlign: 'center',
-          padding: '14px 16px 20px',
-          fontSize: 12,
-          color: '#94a3b8',
-          borderTop: '1px solid #e2e8f0',
-          background: '#fff',
-        }}
-      >
-        <div style={{ fontWeight: 700, color: '#64748b' }}>{appTitle}</div>
-        {(settings.publisherName || settings.publisherRemarks) && (
-          <div style={{ marginTop: 4 }}>
-            {settings.publisherName}
-            {settings.publisherName && settings.publisherRemarks ? ' · ' : ''}
-            {settings.publisherRemarks}
-          </div>
-        )}
-      </footer>
 
       {editUser && (
         <div
@@ -836,33 +748,6 @@ export default function AdminPanel() {
               </button>
               <button type="button" style={btn('#94a3b8')} onClick={() => setEditUser(null)}>
                 Cancel
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {logoutAsk && (
-        <div
-          style={{
-            position: 'fixed',
-            inset: 0,
-            background: 'rgba(15,23,42,0.45)',
-            display: 'grid',
-            placeItems: 'center',
-            zIndex: 60,
-            padding: 16,
-          }}
-        >
-          <div style={{ ...card, width: 'min(340px, 100%)' }}>
-            <h3 style={{ margin: '0 0 8px' }}>Logout?</h3>
-            <p style={{ margin: '0 0 16px', fontSize: 14, color: '#64748b' }}>Admin panel se logout karein?</p>
-            <div style={{ display: 'flex', gap: 8 }}>
-              <button type="button" style={{ ...btn('#d93b3a'), flex: 1 }} onClick={() => logout()}>
-                Yes, Logout
-              </button>
-              <button type="button" style={btn('#94a3b8')} onClick={() => setLogoutAsk(false)}>
-                No
               </button>
             </div>
           </div>
